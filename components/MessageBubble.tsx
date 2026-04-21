@@ -27,26 +27,45 @@ export function MessageBubble({ message }: { message: Message }) {
   };
 
   const handleSendToGitHub = async () => {
-    // This is a naive implementation for demo purposes. 
-    // In a real scenario, you'd extract code blocks specifically.
     setSendingToGit(true);
     setGitStatus(null);
     try {
+      // Find code blocks to extract if any, otherwise push markdown
+      const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/;
+      const match = message.content.match(codeBlockRegex);
+      
+      let finalContent = message.content;
+      let pathTemplate = `docs/generated-${Date.now()}.md`;
+
+      if (match && match[2]) {
+        // If we found a code block, push just the code and use the appropriate extension
+        const lang = match[1] || 'txt';
+        let ext = lang;
+        if (lang === 'typescript') ext = 'ts';
+        if (lang === 'javascript') ext = 'js';
+        if (lang === 'python') ext = 'py';
+        finalContent = match[2].trim();
+        pathTemplate = `src/auto-update-${Date.now()}.${ext}`;
+      }
+
       const res = await fetch('/api/github', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          repo: 'owner/repo-name', // Hardcoded for demo, would come from config
-          path: `generated/code-${Date.now()}.md`,
-          content: message.content,
+          repo: 'luiscastropess-del/DevBot',
+          path: pathTemplate,
+          content: finalContent,
         }),
       });
       if (res.ok) {
         setGitStatus('Sent!');
       } else {
+        const errorData = await res.json();
+        console.error(errorData);
         setGitStatus('Failed');
       }
     } catch (err) {
+      console.error(err);
       setGitStatus('Error');
     } finally {
       setSendingToGit(false);
