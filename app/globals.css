@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-[#0b0d14] text-gray-200;
+  }
+}
+
+/* Custom Markdown Prose Styles */
+.markdown-body {
+  @apply text-base leading-relaxed;
+}
+
+.markdown-body p {
+  @apply mb-4 last:mb-0;
+}
+
+.markdown-body pre {
+  @apply bg-[#000000] rounded-md p-4 overflow-x-auto mb-4 border border-[#2d3345];
+}
+
+.markdown-body code {
+  @apply font-mono text-sm bg-[#1e2330] px-1.5 py-0.5 rounded text-indigo-300;
+}
+
+.markdown-body pre code {
+  @apply bg-transparent p-0 text-inherit;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  @apply font-semibold mt-8 mb-4 text-white;
+}
+
+.markdown-body h1 { @apply text-2xl; }
+.markdown-body h2 { @apply text-xl border-b border-[#2d3345] pb-2; }
+.markdown-body h3 { @apply text-lg; }
+
+.markdown-body ul,
+.markdown-body ol {
+  @apply mb-4 pl-6;
+}
+
+.markdown-body ul { @apply list-disc; }
+.markdown-body ol { @apply list-decimal; }
+
+.markdown-body a {
+  @apply text-indigo-400 hover:text-indigo-300 underline underline-offset-2;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-[#2d3345] rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-[#4b5563];
+}
