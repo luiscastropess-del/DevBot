@@ -12,9 +12,9 @@ export const ai = genkit({
       models: [{ name: 'qwen3-coder:cloud' }],
       serverAddress: process.env.OLLAMA_URL || 'https://ollama.com',
       headers: {
-        'Authorization': `Bearer ${process.env.OLLAMA_API_KEY || ''}`.trim()
+        'Authorization': `Bearer ${process.env.OLLAMA_API_KEY || ''}`
       }
-    }),
+    } as any),
   ],
 });
 
