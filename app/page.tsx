@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { generateChatClient } from '@/lib/frontend-flows';
 import { ModelSelector } from '@/components/ModelSelector';
 import { ChatInput } from '@/components/ChatInput';
 import { MessageBubble } from '@/components/MessageBubble';
@@ -35,25 +36,15 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: content, forceModel }),
-      });
+      const data = await generateChatClient(content, forceModel);
 
-      const data = await res.json();
-
-      if (res.ok) {
-        const assistantMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: data.resposta,
-          modeloUsado: data.modeloUsado,
-        };
-        setMessages((prev) => [...prev, assistantMsg]);
-      } else {
-        throw new Error(data.error || 'Failed to get response');
-      }
+      const assistantMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.resposta || 'No response',
+        modeloUsado: data.modeloUsado,
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
     } catch (error: any) {
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),

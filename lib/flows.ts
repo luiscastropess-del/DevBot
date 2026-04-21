@@ -21,11 +21,9 @@ export async function smartRouter(prompt: string, forceModel?: string): Promise<
     }
   }
 
-  // Define our fallback chain
+  // Define our fallback chain for backend
   const fallbackChain = [
     'ollama/qwen3-coder:cloud',
-    'googleai/gemini-1.5-pro',
-    'googleai/gemini-1.5-flash',
   ];
 
   let lastError = null;
