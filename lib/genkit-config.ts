@@ -9,8 +9,11 @@ export const ai = genkit({
       apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY,
     }),
     ollama({
-      models: [{ name: 'qwen2.5-coder:1.5b' }],
-      serverAddress: 'http://127.0.0.1:11434', 
+      models: [{ name: 'qwen3-coder:cloud' }],
+      serverAddress: process.env.OLLAMA_URL || 'https://ollama.com',
+      headers: {
+        'Authorization': `Bearer ${process.env.OLLAMA_API_KEY}`
+      }
     }),
   ],
 });
