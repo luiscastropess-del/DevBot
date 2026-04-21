@@ -1,6 +1,6 @@
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/googleai';
-import ollama from 'genkitx-ollama';
+import { ollama } from 'genkitx-ollama';
 
 // Initialize Genkit with Google AI and Ollama plugins
 export const ai = genkit({
@@ -14,3 +14,4 @@ export const ai = genkit({
     }),
   ],
 });
+
