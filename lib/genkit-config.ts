@@ -6,13 +6,13 @@ import { ollama } from 'genkitx-ollama';
 export const ai = genkit({
   plugins: [
     googleAI({
-      apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY,
+      apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY,
     }),
     ollama({
       models: [{ name: 'qwen3-coder:cloud' }],
       serverAddress: process.env.OLLAMA_URL || 'https://ollama.com',
       headers: {
-        'Authorization': `Bearer ${process.env.OLLAMA_API_KEY}`
+        'Authorization': `Bearer ${process.env.OLLAMA_API_KEY || ''}`.trim()
       }
     }),
   ],

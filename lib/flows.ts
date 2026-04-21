@@ -24,8 +24,8 @@ export async function smartRouter(prompt: string, forceModel?: string): Promise<
   // Define our fallback chain
   const fallbackChain = [
     'ollama/qwen3-coder:cloud',
-    'googleai/gemini-3.1-pro',
-    'googleai/gemini-2.5-flash',
+    'googleai/gemini-1.5-pro-latest',
+    'googleai/gemini-1.5-flash-latest',
   ];
 
   let lastError = null;
@@ -42,8 +42,12 @@ export async function smartRouter(prompt: string, forceModel?: string): Promise<
         resposta: response.text,
         modeloUsado: modelName,
       };
-    } catch (error) {
-      console.warn(`[Genkit] Model ${modelName} failed:`, error);
+    } catch (error: any) {
+      if (error.message.includes('unauthorized')) {
+        console.warn(`[Genkit] Model ${modelName} failed with Authentication error. Check OLLAMA_API_KEY.`);
+      } else {
+        console.warn(`[Genkit] Model ${modelName} failed:`, error);
+      }
       lastError = error;
     }
   }

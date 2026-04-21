@@ -18,12 +18,8 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
       >
         <option value="">Auto (Smart Routing)</option>
         <option value="ollama/qwen3-coder:cloud">Ollama Cloud: Qwen 3 Coder</option>
-        <option value="googleai/gemini-3.1-pro">Cloud: Gemini 3.1 Pro</option>
-        <option value="googleai/gemini-3.1-flash-lite">Cloud: Gemini 3.1 Flash Lite</option>
-        <option value="googleai/gemini-3-flash">Cloud: Gemini 3 Flash</option>
-        <option value="googleai/gemini-2.5-pro">Cloud: Gemini 2.5 Pro</option>
-        <option value="googleai/gemini-2.5-flash">Cloud: Gemini 2.5 Flash</option>
-        <option value="googleai/gemini-2.5-flash-lite">Cloud: Gemini 2.5 Flash Lite</option>
+        <option value="googleai/gemini-1.5-pro">Cloud: Gemini 1.5 Pro</option>
+        <option value="googleai/gemini-1.5-flash">Cloud: Gemini 1.5 Flash</option>
       </select>
       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
         <ChevronDown size={16} />
