@@ -13,20 +13,17 @@ REGRAS INEGOCIÁVEIS:
 export async function generateChatClient(prompt: string, forceModel?: string) {
   // If user forced a model
   if (forceModel) {
-    if (forceModel.startsWith('googleai/')) {
-      return await callGemini(prompt, forceModel.replace('googleai/', ''));
-    } else {
-      return await callBackend(prompt, forceModel);
-    }
+    return await callBackend(prompt, forceModel);
   }
 
-  // AUTO ROUTING FALLBACK CHAIN
+  // We modified the fallback chain so EVERYTHING routes through the backend.
+  // This guarantees the backend Vector Memory RAG pipeline intercepts and augments ALL models.
   const fallbackChain = [
     { type: 'backend', id: 'ollama/qwen2.5-coder:7b' },
     { type: 'backend', id: 'ollama/devbot-pro' },
     { type: 'backend', id: 'ollama/qwen3-coder:cloud' },
-    { type: 'frontend', id: 'gemini-3.1-pro-preview' },
-    { type: 'frontend', id: 'gemini-3.1-flash-lite-preview' }
+    { type: 'backend', id: 'googleai/gemini-3.1-pro-preview' },
+    { type: 'backend', id: 'googleai/gemini-3.1-flash-lite-preview' }
   ];
 
   let lastError: any = null;

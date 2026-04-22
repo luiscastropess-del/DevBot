@@ -1,5 +1,6 @@
 import { ai } from './genkit-config';
 import { Octokit } from '@octokit/rest';
+import { recall, remember } from './vector-store';
 
 export interface ChatResponse {
   resposta: string;
@@ -22,8 +23,20 @@ export async function smartRouter(prompt: string, forceModel?: string): Promise<
   // Smart routing logic is owned by frontend.
   const modelName = forceModel || 'ollama/qwen2.5-coder:7b';
 
+  // --- VECTOR MEMORY RAG PIPELINE ---
+  const memoryContexts = await recall(prompt, 2);
+  let augmentedPrompt = prompt;
+  
+  if (memoryContexts.length > 0) {
+      const memoryString = memoryContexts.map((m, i) => `[Memória Contextual ${i+1}]:\n${m}`).join('\n\n');
+      augmentedPrompt = `O usuário disse o seguinte:\n"${prompt}"\n\n--- MENSAGENS ANTERIORES ÚTEIS RECUPERADAS DA MEMÓRIA VETORIAL ---\n${memoryString}\n--------------------------\nBaseie sua resposta no histórico acima se for relevante.`;
+  }
+  // ----------------------------------
+
   try {
     console.log(`[Genkit/Direct] Attempting to generate with ${modelName}...`);
+
+    let finalResponseText = '';
 
     // DIRECT NGROK OLLAMA FETCH (Bypasses genkitx-ollama bugs with headers/urls)
     if (modelName === 'ollama/qwen2.5-coder:7b' || modelName === 'ollama/devbot-pro') {
@@ -31,7 +44,7 @@ export async function smartRouter(prompt: string, forceModel?: string): Promise<
       const API_URL = "https://sanctity-protegee-balancing.ngrok-free.dev/api/generate";
       const payload = {
           model: bareModel,
-          prompt: `${DEVBOT_PRO_SYSTEM_PROMPT}\n\nUser: ${prompt}`,
+          prompt: `${DEVBOT_PRO_SYSTEM_PROMPT}\n\nUser: ${augmentedPrompt}`,
           stream: false,
           options: {
               temperature: 0.1,
@@ -55,17 +68,22 @@ export async function smartRouter(prompt: string, forceModel?: string): Promise<
       }
 
       const data = await rawRes.json();
-      return { resposta: data.response, modeloUsado: modelName };
+      finalResponseText = data.response;
+    } else {
+      // Default Genkit fallback (For Gemini/Cloud)
+      const response = await ai.generate({
+        model: modelName,
+        prompt: augmentedPrompt,
+        system: DEVBOT_PRO_SYSTEM_PROMPT,
+        config: { temperature: 0.1, topP: 0.9, topK: 40 }
+      });
+      finalResponseText = response.text;
     }
 
-    // Default Genkit fallback (For Gemini/Cloud)
-    const response = await ai.generate({
-      model: modelName,
-      prompt: prompt,
-      system: DEVBOT_PRO_SYSTEM_PROMPT,
-      config: { temperature: 0.1, topP: 0.9, topK: 40 }
-    });
-    return { resposta: response.text, modeloUsado: modelName };
+    // Save this interaction to Vector Memory asynchronously
+    remember("Histórico", `Usuário: ${prompt}\nDevBot: ${finalResponseText}`).catch(console.error);
+
+    return { resposta: finalResponseText, modeloUsado: modelName };
   } catch (error: any) {
     let friendlyError = error.message;
     if (friendlyError?.includes('unauthorized')) {
