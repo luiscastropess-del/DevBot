@@ -22,6 +22,7 @@ export async function generateChatClient(prompt: string, forceModel?: string) {
 
   // AUTO ROUTING FALLBACK CHAIN
   const fallbackChain = [
+    { type: 'backend', id: 'ollama/qwen2.5-coder:7b' },
     { type: 'backend', id: 'ollama/devbot-pro' },
     { type: 'backend', id: 'ollama/qwen3-coder:cloud' },
     { type: 'frontend', id: 'gemini-3.1-pro-preview' },

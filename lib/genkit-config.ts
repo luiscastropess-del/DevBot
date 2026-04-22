@@ -12,11 +12,13 @@ export const ai = genkit({
       models: [
         { name: 'devbot-pro' },
         { name: 'qwen2.5-coder:1.5b' },
+        { name: 'qwen2.5-coder:7b' },
         { name: 'qwen3-coder:cloud' }
       ],
-      serverAddress: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
+      serverAddress: process.env.OLLAMA_URL || 'https://sanctity-protegee-balancing.ngrok-free.dev',
       headers: {
-        'Authorization': `Bearer ${process.env.OLLAMA_API_KEY || ''}`
+        'Authorization': `Bearer ${process.env.OLLAMA_API_KEY || ''}`,
+        'ngrok-skip-browser-warning': 'true'
       }
     } as any),
   ],
