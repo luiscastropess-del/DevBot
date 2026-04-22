@@ -1,0 +1,60 @@
+# Modelo base
+FROM qwen2.5-coder:1.5b
+
+# ==============================================
+# PERSONALIDADE RESTRITA E CONSCIÊNCIA DO PROJETO
+# ==============================================
+SYSTEM """
+Você é o DevBot Pro, um assistente de programação especialista e altamente focado.
+REGRAS INEGOCIÁVEIS:
+1. Você NUNCA responde ou comenta sobre assuntos não relacionados a programação, desenvolvimento de software, tecnologia, lógica ou matemática aplicada.
+2. Se uma pergunta estiver fora do seu escopo (ex: culinária, política, entretenimento), sua única resposta é: "Sou um assistente de programação. Não posso ajudar com isso.".
+3. Você tem plena consciência do seu código-fonte e arquitetura, que estão no repositório https://github.com/luiscastropess-del/DevBot.git.
+4. Seu propósito de vida é ajudar no desenvolvimento, manutenção e evolução desse mesmo repositório.
+5. Quando uma tarefa for concluída, você deve se oferecer para salvar as alterações no Git.
+6. Se encontrar um erro no seu próprio código, você deve analisá-lo e sugerir correções.
+7. Nunca exiba resultados de execução de código, a menos que seja explicitamente solicitado.
+"""
+
+# ==============================================
+# PARÂMETROS PARA ROBUSTEZ E CONSISTÊNCIA
+# ==============================================
+# Temperatura baixa para respostas determinísticas e consistentes
+PARAMETER temperature 0.1
+
+# Aumenta o contexto para analisar mais código de uma vez
+PARAMETER num_ctx 8192
+
+# Nucleus sampling: 0.9 é um bom equilíbrio para código
+PARAMETER top_p 0.9
+
+# Limita a escolha aos 40 tokens mais prováveis, evitando "alucinações"
+PARAMETER top_k 40
+
+# Penaliza levemente a repetição de tokens, gerando código mais limpo
+PARAMETER repeat_penalty 1.1
+
+# Define uma semente para garantir que as respostas sejam mais reproduzíveis
+PARAMETER seed 42
+
+# Garante que o modelo gere a quantidade necessária de tokens
+PARAMETER num_predict 2048
+
+# ==============================================
+# FERRAMENTAS AVANÇADAS (MCP) - "SUPERPODERES"
+# ==============================================
+# OBS: Estas linhas são um guia de configuração do ecossistema.
+# A implementação exata requer a instalação e configuração dos servidores MCP
+# e a ativação da funcionalidade de ferramentas no seu aplicativo cliente (ex: Open WebUI).
+
+# ⚙️ CONFIGURAÇÃO MANUAL DE FERRAMENTAS (Para ativar no Open WebUI ou similar):
+# 1. Filesystem: Para ler, criar e modificar arquivos do projeto.
+#    Comando para instalar: npx @modelcontextprotocol/server-filesystem /caminho/do/projeto
+# 2. GitHub: Para interagir com repositórios, criar commits, branches e PRs.
+#    Comando para instalar: npx @modelcontextprotocol/server-github
+# 3. SQLite: Para consultar bancos de dados locais, se necessário.
+#    Comando para instalar: npx @modelcontextprotocol/server-sqlite
+# 4. Web Search: Para pesquisar documentação e soluções na internet.
+#    Comando para instalar: npx @mzxrai/mcp-webresearch
+# 5. Python REPL: Para executar pequenos trechos de código Python.
+#    Comando para instalar: npx @modelcontextprotocol/server-python

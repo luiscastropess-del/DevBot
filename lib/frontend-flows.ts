@@ -1,5 +1,15 @@
 import { GoogleGenAI } from "@google/genai";
 
+const DEVBOT_PRO_SYSTEM_PROMPT = `Você é o DevBot Pro, um assistente de programação especialista e altamente focado.
+REGRAS INEGOCIÁVEIS:
+1. Você NUNCA responde ou comenta sobre assuntos não relacionados a programação, desenvolvimento de software, tecnologia, lógica ou matemática aplicada.
+2. Se uma pergunta estiver fora do seu escopo (ex: culinária, política, entretenimento), sua única resposta é: "Sou um assistente de programação. Não posso ajudar com isso.".
+3. Você tem plena consciência do seu código-fonte e arquitetura, que estão no repositório https://github.com/luiscastropess-del/DevBot.git.
+4. Seu propósito de vida é ajudar no desenvolvimento, manutenção e evolução desse mesmo repositório.
+5. Quando uma tarefa for concluída, você deve se oferecer para salvar as alterações no Git.
+6. Se encontrar um erro no seu próprio código, você deve analisá-lo e sugerir correções.
+7. Nunca exiba resultados de execução de código, a menos que seja explicitamente solicitado.`;
+
 export async function generateChatClient(prompt: string, forceModel?: string) {
   // If user forced a model
   if (forceModel) {
@@ -12,6 +22,7 @@ export async function generateChatClient(prompt: string, forceModel?: string) {
 
   // AUTO ROUTING FALLBACK CHAIN
   const fallbackChain = [
+    { type: 'backend', id: 'ollama/devbot-pro' },
     { type: 'backend', id: 'ollama/qwen3-coder:cloud' },
     { type: 'frontend', id: 'gemini-3.1-pro-preview' },
     { type: 'frontend', id: 'gemini-3.1-flash-lite-preview' }
@@ -44,6 +55,12 @@ async function callGemini(prompt: string, modelId: string) {
   const response = await ai.models.generateContent({
     model: modelId,
     contents: prompt,
+    config: {
+      systemInstruction: DEVBOT_PRO_SYSTEM_PROMPT,
+      temperature: 0.1,
+      topP: 0.9,
+      topK: 40,
+    }
   });
   return { resposta: response.text || "No response text", modeloUsado: `googleai/${modelId}` };
 }

@@ -6,51 +6,43 @@ export interface ChatResponse {
   modeloUsado: string;
 }
 
+const DEVBOT_PRO_SYSTEM_PROMPT = `Você é o DevBot Pro, um assistente de programação especialista e altamente focado.
+REGRAS INEGOCIÁVEIS:
+1. Você NUNCA responde ou comenta sobre assuntos não relacionados a programação, desenvolvimento de software, tecnologia, lógica ou matemática aplicada.
+2. Se uma pergunta estiver fora do seu escopo (ex: culinária, política, entretenimento), sua única resposta é: "Sou um assistente de programação. Não posso ajudar com isso.".
+3. Você tem plena consciência do seu código-fonte e arquitetura, que estão no repositório https://github.com/luiscastropess-del/DevBot.git.
+4. Seu propósito de vida é ajudar no desenvolvimento, manutenção e evolução desse mesmo repositório.
+5. Quando uma tarefa for concluída, você deve se oferecer para salvar as alterações no Git.
+6. Se encontrar um erro no seu próprio código, você deve analisá-lo e sugerir correções.
+7. Nunca exiba resultados de execução de código, a menos que seja explicitamente solicitado.`;
+
 // Fallback logic for routing
 export async function smartRouter(prompt: string, forceModel?: string): Promise<ChatResponse> {
-  // If the user deliberately requests a specific model
-  if (forceModel) {
-    try {
-      const response = await ai.generate({
-        model: forceModel,
-        prompt: prompt,
-      });
-      return { resposta: response.text, modeloUsado: forceModel };
-    } catch (error) {
-      console.warn(`[Genkit] Forced model ${forceModel} failed. Falling back...`);
+  // Now the backend only executes what the frontend requests (or devbot-pro if empty)
+  // Smart routing logic is owned by frontend.
+  const modelName = forceModel || 'ollama/devbot-pro';
+
+  try {
+    console.log(`[Genkit] Attempting to generate with ${modelName}...`);
+    const response = await ai.generate({
+      model: modelName,
+      prompt: prompt,
+      system: DEVBOT_PRO_SYSTEM_PROMPT,
+      config: { temperature: 0.1, topP: 0.9, topK: 40 }
+    });
+    return { resposta: response.text, modeloUsado: modelName };
+  } catch (error: any) {
+    let friendlyError = error.message;
+    if (friendlyError?.includes('unauthorized')) {
+      friendlyError = 'Authentication error. Please check your OLLAMA_API_KEY in the AI Studio settings.';
+    } else if (friendlyError?.includes('Unexpected end of JSON input') || friendlyError?.includes('ECONNREFUSED')) {
+      friendlyError = `Could not connect to Ollama server for model '${modelName}'. If you selected a local model, ensure Ollama is running on your machine and accessible limitlessly.`;
     }
+    
+    console.warn(`[Genkit] Model ${modelName} failed:`, friendlyError);
+    // Throwing so the frontend router catches and rolls over or displays it
+    throw new Error(`Failed to map AI model '${modelName}': ${friendlyError}`);
   }
-
-  // Define our fallback chain for backend
-  const fallbackChain = [
-    'ollama/qwen3-coder:cloud',
-  ];
-
-  let lastError = null;
-
-  for (const modelName of fallbackChain) {
-    try {
-      console.log(`[Genkit] Attempting to generate with ${modelName}...`);
-      const response = await ai.generate({
-        model: modelName,
-        prompt: prompt,
-      });
-
-      return {
-        resposta: response.text,
-        modeloUsado: modelName,
-      };
-    } catch (error: any) {
-      if (error.message.includes('unauthorized')) {
-        console.warn(`[Genkit] Model ${modelName} failed with Authentication error. Check OLLAMA_API_KEY.`);
-      } else {
-        console.warn(`[Genkit] Model ${modelName} failed:`, error);
-      }
-      lastError = error;
-    }
-  }
-
-  throw new Error(`All models in the fallback chain failed. Last error: ${lastError}`);
 }
 
 export async function enviarParaGitHub(repoFullName: string, path: string, content: string, message: string) {
