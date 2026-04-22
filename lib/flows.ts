@@ -1,6 +1,7 @@
 import { ai } from './genkit-config';
 import { Octokit } from '@octokit/rest';
 import { recall, remember } from './vector-store';
+import { recallRepoSnippet } from './repo-indexer';
 
 export interface ChatResponse {
   resposta: string;
@@ -23,15 +24,27 @@ export async function smartRouter(prompt: string, forceModel?: string): Promise<
   // Smart routing logic is owned by frontend.
   const modelName = forceModel || 'ollama/qwen2.5-coder:7b';
 
-  // --- VECTOR MEMORY RAG PIPELINE ---
-  const memoryContexts = await recall(prompt, 2);
+  // --- VECTOR MEMORY & CODEBASE RAG PIPELINE ---
+  const [memoryContexts, repoContexts] = await Promise.all([
+      recall(prompt, 2),
+      recallRepoSnippet(prompt, 3)
+  ]);
+
   let augmentedPrompt = prompt;
-  
+  let contextParts: string[] = [];
+
   if (memoryContexts.length > 0) {
-      const memoryString = memoryContexts.map((m, i) => `[Memória Contextual ${i+1}]:\n${m}`).join('\n\n');
-      augmentedPrompt = `O usuário disse o seguinte:\n"${prompt}"\n\n--- MENSAGENS ANTERIORES ÚTEIS RECUPERADAS DA MEMÓRIA VETORIAL ---\n${memoryString}\n--------------------------\nBaseie sua resposta no histórico acima se for relevante.`;
+      contextParts.push(`--- MENSAGENS ANTERIORES ÚTEIS ---\n${memoryContexts.join('\n\n')}`);
   }
-  // ----------------------------------
+
+  if (repoContexts.length > 0) {
+      contextParts.push(`--- TRECHOS DO CÓDIGO FONTE (BASE DE CONHECIMENTO) ---\n${repoContexts.join('\n\n')}`);
+  }
+  
+  if (contextParts.length > 0) {
+      augmentedPrompt = `Pergunta: "${prompt}"\n\n${contextParts.join('\n\n')}\n\nAnalise o histórico e os fontes acima para responder da forma mais técnica e precisa possível.`;
+  }
+  // ----------------------------------------------
 
   try {
     console.log(`[Genkit/Direct] Attempting to generate with ${modelName}...`);
@@ -57,6 +70,7 @@ export async function smartRouter(prompt: string, forceModel?: string): Promise<
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
           'ngrok-skip-browser-warning': 'true' // VITAL for free tier
         },
         body: JSON.stringify(payload)
@@ -64,11 +78,20 @@ export async function smartRouter(prompt: string, forceModel?: string): Promise<
 
       if (!rawRes.ok) {
         const errorText = await rawRes.text();
-        throw new Error(`Direct Fetch Failed (${rawRes.status}): ${errorText}`);
+        throw new Error(`Ollama/Ngrok returned error (${rawRes.status}). Check Colab.`);
       }
 
-      const data = await rawRes.json();
-      finalResponseText = data.response;
+      const contentType = rawRes.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await rawRes.json();
+        finalResponseText = data.response;
+      } else {
+        const text = await rawRes.text();
+        if (text.includes('ERR_NGROK_3200') || text.includes('offline')) {
+            throw new Error(`Ngrok tunnel is OFFLINE. Please restart your Colab notebook.`);
+        }
+        throw new Error(`Expected JSON from Ollama but got HTML. Ngrok might be blocking the request.`);
+      }
     } else {
       // Default Genkit fallback (For Gemini/Cloud)
       const response = await ai.generate({

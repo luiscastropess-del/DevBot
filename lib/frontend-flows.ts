@@ -70,11 +70,19 @@ async function callBackend(prompt: string, forceModel: string) {
     body: JSON.stringify({ prompt, forceModel }),
   });
 
-  const data = await res.json();
-  if (res.ok) {
-    return { resposta: data.resposta, modeloUsado: data.modeloUsado };
+  const contentType = res.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    const data = await res.json();
+    if (res.ok) {
+      return { resposta: data.resposta, modeloUsado: data.modeloUsado };
+    } else {
+      throw new Error(data.details || data.error || `Server Error (${res.status})`);
+    }
   } else {
-    throw new Error(data.details || data.error || 'Failed to get response from backend');
+    const text = await res.text();
+    // If it's a large HTML error page, just show a snippet or a generic message
+    const errorSnippet = text.substring(0, 100).replace(/<[^>]*>?/gm, '');
+    throw new Error(`Backend error (${res.status}): ${errorSnippet || 'Check if the backend is online'}`);
   }
 }
 
