@@ -27,7 +27,10 @@ function cosineSimilarity(A: number[], B: number[]) {
 
 // Uses Gemini to generate text vectors (embeddings)
 export async function getEmbedding(text: string): Promise<number[]> {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY;
+    let apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    if (apiKey === "MY_GEMINI_API_KEY") {
+        apiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY || "";
+    }
     if (!apiKey) throw new Error("API Key required for embeddings.");
     
     // Fallback safely to not break things if limits are reached

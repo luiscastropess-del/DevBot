@@ -13,6 +13,7 @@
     "@genkit-ai/googleai": "^1.28.0",
     "@google/genai": "^1.17.0",
     "@hookform/resolvers": "^5.2.1",
+    "@modelcontextprotocol/server-filesystem": "^2026.1.14",
     "@octokit/rest": "^22.0.1",
     "autoprefixer": "^10.4.21",
     "class-variance-authority": "^0.7.1",

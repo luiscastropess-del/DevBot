@@ -3,10 +3,15 @@ import { googleAI } from '@genkit-ai/googleai';
 import { ollama } from 'genkitx-ollama';
 
 // Initialize Genkit with Google AI and Ollama plugins
+let googleApiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+if (googleApiKey === "MY_GEMINI_API_KEY") {
+  googleApiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY || "";
+}
+
 export const ai = genkit({
   plugins: [
     googleAI({
-      apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY,
+      apiKey: googleApiKey,
     }),
     ollama({
       models: [
