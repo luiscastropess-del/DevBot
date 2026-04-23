@@ -37,13 +37,12 @@ export async function indexGitHubRepo(repoUrl: string) {
     console.log(`[Repo Indexer] Iniciando indexação de ${owner}/${repo}...`);
 
     try {
-        // Get recursive tree
-        const { data: treeData } = await octokit.repos.getTree({
+        const { data: treeData } = await octokit.git.getTree({
             owner,
             repo,
             tree_sha: 'main', // fallback to master if main fails
             recursive: 'true'
-        }).catch(() => octokit.repos.getTree({
+        }).catch(() => octokit.git.getTree({
             owner,
             repo,
             tree_sha: 'master',
