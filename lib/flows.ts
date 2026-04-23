@@ -2,6 +2,8 @@ import { ai } from './genkit-config';
 import { Octokit } from '@octokit/rest';
 import { recall, remember } from './vector-store';
 import { recallRepoSnippet } from './repo-indexer';
+import fs from 'fs/promises';
+import path from 'path';
 
 export interface ChatResponse {
   resposta: string;
@@ -18,13 +20,63 @@ REGRAS INEGOCIÁVEIS:
 6. Se encontrar um erro no seu próprio código, você deve analisá-lo e sugerir correções.
 7. Nunca exiba resultados de execução de código, a menos que seja explicitamente solicitado.`;
 
+// Define ROOT_DIR according to the Render standard or local 
+const ROOT_DIR = process.env.NODE_ENV === 'production' 
+  ? '/opt/render/project/src' 
+  : process.cwd();
+
+// ============================================================
+// DIRECT LOCAL FILESYSTEM AWARENESS 
+// ============================================================
+export async function listarEstrutura(diretorio: string = '.') {
+  try {
+    const fullPath = path.resolve(ROOT_DIR, diretorio);
+    const files = await fs.readdir(fullPath, { withFileTypes: true });
+    
+    return files
+      .filter(f => !f.name.startsWith('.git') && f.name !== 'node_modules')
+      .map(f => ({
+        nome: f.name,
+        tipo: f.isDirectory() ? 'diretorio' : 'arquivo',
+        caminho: path.join(diretorio, f.name)
+      }));
+  } catch (error) {
+    console.warn(`[FS] Error listing dir ${diretorio}:`, error);
+    return [];
+  }
+}
+
+export async function lerArquivo(caminho: string) {
+  try {
+    const fullPath = path.resolve(ROOT_DIR, caminho);
+    const conteudo = await fs.readFile(fullPath, 'utf-8');
+    return conteudo;
+  } catch (error) {
+    console.error(`[FS] Error reading file ${caminho}:`, error);
+    throw new Error(`Não foi possível ler o arquivo: ${caminho}`);
+  }
+}
+
 // Fallback logic for routing
-export async function smartRouter(prompt: string, forceModel?: string): Promise<ChatResponse> {
+export async function smartRouter(prompt: string, forceModel?: string, incluirEstrutura: boolean = true): Promise<ChatResponse> {
   // Now the backend only executes what the frontend requests (or qwen2.5-coder:7b if empty)
   // Smart routing logic is owned by frontend.
   const modelName = forceModel || 'ollama/qwen2.5-coder:7b';
 
-  // --- VECTOR MEMORY & CODEBASE RAG PIPELINE ---
+  // --- RAG PIPELINE: Local FS + Vector Memory + Codebase ---
+  let estruturaTexto = '';
+  if (incluirEstrutura) {
+    try {
+      const estrutura = await listarEstrutura();
+      if (estrutura.length > 0) {
+        estruturaTexto = '📁 Estrutura atual do projeto local no servidor:\n';
+        estruturaTexto += estrutura.map(f => `- ${f.caminho} (${f.tipo})`).join('\n') + '\n\n';
+      }
+    } catch (e) {
+       // Ignore silent errors
+    }
+  }
+
   const [memoryContexts, repoContexts] = await Promise.all([
       recall(prompt, 2),
       recallRepoSnippet(prompt, 3)
@@ -32,6 +84,10 @@ export async function smartRouter(prompt: string, forceModel?: string): Promise<
 
   let augmentedPrompt = prompt;
   let contextParts: string[] = [];
+
+  if (estruturaTexto) {
+      contextParts.push(estruturaTexto);
+  }
 
   if (memoryContexts.length > 0) {
       contextParts.push(`--- MENSAGENS ANTERIORES ÚTEIS ---\n${memoryContexts.join('\n\n')}`);
@@ -42,7 +98,7 @@ export async function smartRouter(prompt: string, forceModel?: string): Promise<
   }
   
   if (contextParts.length > 0) {
-      augmentedPrompt = `Pergunta: "${prompt}"\n\n${contextParts.join('\n\n')}\n\nAnalise o histórico e os fontes acima para responder da forma mais técnica e precisa possível.`;
+      augmentedPrompt = `Pergunta: "${prompt}"\n\n${contextParts.join('\n\n')}\n\nAnalise a estrutura local, o histórico e os fontes acima para responder da forma mais técnica e precisa possível.`;
   }
   // ----------------------------------------------
 
