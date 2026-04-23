@@ -16,6 +16,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
         className="block appearance-none w-full text-[11px] md:text-xs bg-[#0b1711] border border-[#1e5435] hover:border-[#3affb0] px-2 md:px-3 py-1.5 pr-6 md:pr-8 rounded-[4px] leading-tight focus:outline-none focus:shadow-outline text-[#a0f0c0] font-mono shadow-[inset_0_0_8px_#000] cursor-pointer"
       >
         <option value="">[AUTO: ROUTER]</option>
+        <option value="luiscastropess/devbot-pro:latest">[CUSTOM] DevBot Pro (Cloud)</option>
         <option value="ollama/qwen2.5-coder:7b">[NGROK] Qwen 2.5 Coder 7B</option>
         <option value="ollama/devbot-pro">[LOCAL] DevBot Pro</option>
         <option value="ollama/qwen3-coder:cloud">[CLOUD] Ollama Qwen3</option>

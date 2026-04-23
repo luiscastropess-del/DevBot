@@ -164,11 +164,36 @@ const readTool = ai.defineTool(
 );
 
 
+async function chatComModelo(prompt: string, model: string = 'luiscastropess/devbot-pro:latest') {
+  const apiKey = process.env.OLLAMA_API_KEY;
+  // Note: Using the URL exactly as provided by user, but ensuring it falls back to a common proxy if needed
+  const baseUrl = 'https://ollama.com/v1/chat/completions'; 
+  
+  const resposta = await fetch(baseUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  
+  if (!resposta.ok) {
+    const errText = await resposta.text();
+    throw new Error(`Ollama Cloud Error (${resposta.status}): ${errText}`);
+  }
+
+  const data = await resposta.json();
+  return data.choices[0].message.content;
+}
+
 // Fallback logic for routing
 export async function smartRouter(prompt: string, forceModel?: string, incluirEstrutura: boolean = true, permitirEscrita: boolean = false): Promise<ChatResponse> {
-  const modelName = forceModel || 'ollama/qwen2.5-coder:7b';
+  const modelName = forceModel || 'luiscastropess/devbot-pro:latest';
 
-  // --- RAG PIPELINE: Local FS + Vector Memory + Codebase ---
   let estruturaTexto = '';
   if (incluirEstrutura) {
     try {
@@ -211,8 +236,12 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
 
     let finalResponseText = '';
 
+    // Handle custom devbot-pro model via the user's specific API logic
+    if (modelName === 'luiscastropess/devbot-pro:latest') {
+      finalResponseText = await chatComModelo(augmentedPrompt);
+    }
     // If using Google Gemini via Genkit natively, we can use tools easily
-    if (modelName.startsWith('googleai/') || modelName === 'googleai/gemini-3.1-pro-preview') {
+    else if (modelName.startsWith('googleai/') || modelName === 'googleai/gemini-3.1-pro-preview') {
       const response = await ai.generate({
         model: modelName,
         prompt: augmentedPrompt,
