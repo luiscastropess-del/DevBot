@@ -14,12 +14,12 @@ export async function generateChatClient(prompt: string, forceModel?: string) {
   // Configured preferred fallback chain: Ollama as primary, Gemini as emergency.
   // If a model is offline or throws an error, the next is tried seamlessly.
   const defaultChain = [
+    { type: 'backend', id: 'luiscastropess/devbot-pro:latest' },
     { type: 'backend', id: 'ollama/devbot-pro' },
     { type: 'backend', id: 'ollama/qwen2.5-coder:7b' },
-    { type: 'backend', id: 'ollama/qwen3-coder:cloud' },
-    { type: 'backend', id: 'googleai/gemini-3.1-pro-preview' },
-    { type: 'backend', id: 'googleai/gemini-3.1-flash-lite-preview' },
-    { type: 'backend', id: 'googleai/gemini-2.5-flash-lite-preview' }
+    { type: 'backend', id: 'googleai/gemini-1.5-pro' },
+    { type: 'backend', id: 'googleai/gemini-1.5-flash' },
+    { type: 'backend', id: 'googleai/gemini-1.5-flash-8b' }
   ];
 
   // If a specific model is forced, we try it FIRST, then fallback to others if it crashes

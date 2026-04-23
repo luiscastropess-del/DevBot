@@ -166,28 +166,43 @@ const readTool = ai.defineTool(
 
 async function chatComModelo(prompt: string, model: string = 'luiscastropess/devbot-pro:latest') {
   const apiKey = process.env.OLLAMA_API_KEY;
-  // Note: Using the URL exactly as provided by user, but ensuring it falls back to a common proxy if needed
+  // If the user provided URL is literally ollama.com, keep it, but add logging
   const baseUrl = 'https://ollama.com/v1/chat/completions'; 
   
-  const resposta = await fetch(baseUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-  
-  if (!resposta.ok) {
-    const errText = await resposta.text();
-    throw new Error(`Ollama Cloud Error (${resposta.status}): ${errText}`);
-  }
+  try {
+    const resposta = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: 'system', content: DEVBOT_PRO_SYSTEM_PROMPT },
+          { role: 'user', content: prompt }
+        ]
+      })
+    });
+    
+    if (!resposta.ok) {
+      const errText = await resposta.text();
+      // If it's a 404, it's likely the URL is wrong
+      if (resposta.status === 404) {
+         throw new Error(`⚠️ Erro 404: O endpoint ${baseUrl} não foi encontrado. Verifique se a URL está correta (ex: se deveria ser seu Ngrok).`);
+      }
+      throw new Error(`Ollama Cloud Error (${resposta.status}): ${errText}`);
+    }
 
-  const data = await resposta.json();
-  return data.choices[0].message.content;
+    const data = await resposta.json();
+    if (!data.choices || !data.choices[0]) {
+       throw new Error("Resposta inválida do serviço de nuvem (sem choices).");
+    }
+    return data.choices[0].message.content;
+  } catch (error: any) {
+     console.error(`[chatComModelo] Failed to call ${baseUrl}:`, error.message);
+     throw error;
+  }
 }
 
 // Fallback logic for routing
@@ -241,7 +256,7 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
       finalResponseText = await chatComModelo(augmentedPrompt);
     }
     // If using Google Gemini via Genkit natively, we can use tools easily
-    else if (modelName.startsWith('googleai/') || modelName === 'googleai/gemini-3.1-pro-preview') {
+    else if (modelName.startsWith('googleai/') || modelName.includes('gemini-1.5')) {
       const response = await ai.generate({
         model: modelName,
         prompt: augmentedPrompt,
