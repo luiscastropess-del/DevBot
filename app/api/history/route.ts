@@ -3,12 +3,15 @@ import { getHistory, clearHistory } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const messages = await getHistory();
+    const { searchParams } = new URL(req.url);
+    const sessionId = searchParams.get('sessionId');
+    const messages = await getHistory(sessionId || undefined);
     
     const history = messages.map((m: any) => ({
       id: m.id,
+      sessionId: m.session_id,
       role: m.role,
       content: m.content,
       modeloUsado: m.modelo_usado,
@@ -21,9 +24,11 @@ export async function GET() {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   try {
-    await clearHistory();
+    const { searchParams } = new URL(req.url);
+    const sessionId = searchParams.get('sessionId');
+    await clearHistory(sessionId || undefined);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

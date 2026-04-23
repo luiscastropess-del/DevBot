@@ -10,7 +10,7 @@ REGRAS INEGOCIÁVEIS:
 6. Se encontrar um erro no seu próprio código, você deve analisá-lo e sugerir correções.
 7. Nunca exiba resultados de execução de código, a menos que seja explicitamente solicitado.`;
 
-export async function generateChatClient(prompt: string, forceModel?: string) {
+export async function generateChatClient(prompt: string, forceModel?: string, sessionId?: string) {
   // Configured preferred fallback chain: Ollama as primary, Gemini as emergency.
   // If a model is offline or throws an error, the next is tried seamlessly.
   const defaultChain = [
@@ -39,7 +39,7 @@ export async function generateChatClient(prompt: string, forceModel?: string) {
       if (model.type === 'frontend') {
         return await callGemini(prompt, model.id);
       } else {
-        return await callBackend(prompt, model.id);
+        return await callBackend(prompt, model.id, sessionId);
       }
     } catch (e: any) {
       console.warn(`[Router] Model ${model.id} failed:`, e.message);
@@ -77,13 +77,14 @@ async function callGemini(prompt: string, modelId: string) {
   }
 }
 
-async function callBackend(prompt: string, forceModel: string) {
+async function callBackend(prompt: string, forceModel: string, sessionId?: string) {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ 
        prompt, 
        forceModel,
+       sessionId,
        params: { permitirEscrita: true } // Auto-enable tooling capabilities in Genkit Router
     }),
   });

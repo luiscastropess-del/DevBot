@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
-    const { prompt, forceModel, action, params } = await req.json();
+    const { prompt, forceModel, action, params, sessionId } = await req.json();
 
     // Directly handle specific filesystem actions
     if (action === 'listar') {
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
 
     // Default chat logic with structure awareness and potential permissions write
     const permitirEscrita = params?.permitirEscrita || false;
-    const { resposta, modeloUsado } = await smartRouter(prompt, forceModel, true, permitirEscrita);
+    const { resposta, modeloUsado } = await smartRouter(prompt, forceModel, true, permitirEscrita, sessionId);
 
     return NextResponse.json({ resposta, modeloUsado });
   } catch (error: any) {

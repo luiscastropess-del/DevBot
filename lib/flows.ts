@@ -206,7 +206,7 @@ async function chatComModelo(prompt: string, model: string = 'luiscastropess/dev
 }
 
 // Fallback logic for routing
-export async function smartRouter(prompt: string, forceModel?: string, incluirEstrutura: boolean = true, permitirEscrita: boolean = false): Promise<ChatResponse> {
+export async function smartRouter(prompt: string, forceModel?: string, incluirEstrutura: boolean = true, permitirEscrita: boolean = false, sessionId?: string): Promise<ChatResponse> {
   const modelName = forceModel || 'luiscastropess/devbot-pro:latest';
 
   let estruturaTexto = '';
@@ -310,8 +310,8 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
 
     // Save individual messages to SQLite for UI History persistence
     const { saveMessage } = await import('./db');
-    await saveMessage('user', prompt);
-    await saveMessage('assistant', finalResponseText, modelName);
+    await saveMessage('user', prompt, sessionId || '');
+    await saveMessage('assistant', finalResponseText, sessionId || '', modelName);
 
     return { resposta: finalResponseText, modeloUsado: modelName };
   } catch (error: any) {

@@ -6,7 +6,8 @@ import { ModelSelector } from '@/components/ModelSelector';
 import { ChatInput } from '@/components/ChatInput';
 import { MessageBubble } from '@/components/MessageBubble';
 import { TrainingPanel } from '@/components/TrainingPanel';
-import { Settings } from 'lucide-react';
+import { ChatSessions } from '@/components/ChatSessions';
+import { Settings, Menu, X } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -15,21 +16,52 @@ interface Message {
   modeloUsado?: string;
 }
 
+interface Session {
+  id: string;
+  title: string;
+  created_at: number;
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [forceModel, setForceModel] = useState<string>('');
   const [showTraining, setShowTraining] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load history on mount
+  // Load sessions on mount
   useEffect(() => {
-    const loadHistory = async () => {
+    const loadSessions = async () => {
       try {
-        const res = await fetch('/api/history');
+        const res = await fetch('/api/sessions');
         if (res.ok) {
           const data = await res.json();
-          if (data.history && data.history.length > 0) {
+          setSessions(data.sessions || []);
+          if (data.sessions && data.sessions.length > 0 && !activeSessionId) {
+            setActiveSessionId(data.sessions[0].id);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load sessions:", e);
+      }
+    };
+    loadSessions();
+  }, []);
+
+  // Load history when session changes
+  useEffect(() => {
+    if (!activeSessionId) return;
+
+    const loadHistory = async () => {
+      setMessages([]);
+      try {
+        const res = await fetch(`/api/history?sessionId=${activeSessionId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.history) {
             setMessages(data.history);
           }
         }
@@ -38,7 +70,42 @@ export default function ChatPage() {
       }
     };
     loadHistory();
-  }, []);
+  }, [activeSessionId]);
+
+  const handleNewChat = async () => {
+    try {
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Nova Conversa' })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const newSession = { id: data.id, title: 'Nova Conversa', created_at: Date.now() };
+        setSessions(prev => [newSession, ...prev]);
+        setActiveSessionId(data.id);
+        setShowMobileSidebar(false);
+      }
+    } catch (e) {
+      console.error("Failed to create session:", e);
+    }
+  };
+
+  const handleDeleteSession = async (id: string) => {
+    try {
+      const res = await fetch(`/api/sessions?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSessions(prev => prev.filter(s => s.id !== id));
+        if (activeSessionId === id) {
+          const remaining = sessions.filter(s => s.id !== id);
+          if (remaining.length > 0) setActiveSessionId(remaining[0].id);
+          else handleNewChat();
+        }
+      }
+    } catch (e) {
+      console.error("Failed to delete session:", e);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -54,7 +121,7 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      const data = await generateChatClient(content, forceModel);
+      const data = await generateChatClient(content, forceModel, activeSessionId);
 
       const assistantMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -63,6 +130,12 @@ export default function ChatPage() {
         modeloUsado: data.modeloUsado,
       };
       setMessages((prev) => [...prev, assistantMsg]);
+      
+      // Update session title locally if it's the first message
+      if (messages.length === 0) {
+        const title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+        setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, title } : s));
+      }
     } catch (error: any) {
       let finalMessage = error.message;
 
@@ -89,69 +162,103 @@ export default function ChatPage() {
     <>
       <div className="cyber-grid" />
       
-      <div className="flex flex-col h-[95vh] md:h-[90vh] max-h-[800px] w-full max-w-[1000px] mx-auto z-20 relative terminal-container rounded-[12px] md:rounded-[20px] overflow-hidden mt-2 md:mt-[5vh]">
-        {/* Terminal Header */}
-        <div className="bg-[#0c1612] px-4 py-[14px] border-b-2 border-[#1f4a2c] flex items-center justify-between relative overflow-hidden terminal-header-scan rounded-t-[12px] md:rounded-t-[18px]">
-          <div className="flex items-center gap-[10px] z-10">
-            <div className="w-[14px] h-[14px] rounded-full bg-[#ff5f56] shadow-[0_0_8px_#ff5f56]" />
-            <div className="w-[14px] h-[14px] rounded-full bg-[#ffbd2e] shadow-[0_0_8px_#ffbd2e]" />
-            <div className="w-[14px] h-[14px] rounded-full bg-[#27c93f] shadow-[0_0_8px_#27c93f]" />
-          </div>
-          
-          <div className="flex items-center gap-[12px] text-[#1effbc] font-medium tracking-[2px] z-10">
-            <i className="fas fa-terminal text-[1.4rem] glitch-icon"></i>
-            <span className="glitch-text hidden sm:inline">DEVBOT://PRO</span>
-            <span className="glitch-text sm:hidden">DEVBOT</span>
-          </div>
+      <div className="flex h-[100vh] w-full max-w-[1400px] mx-auto z-20 relative overflow-hidden">
+        
+        {/* Sessions Sidebar */}
+        <ChatSessions 
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onSelect={setActiveSessionId}
+          onNew={handleNewChat}
+          onDelete={handleDeleteSession}
+        />
 
-          <div className="flex items-center gap-3 z-10">
-            <div className="w-28 sm:w-36">
-                <ModelSelector value={forceModel} onChange={setForceModel} />
-            </div>
-            <button
-               onClick={() => setShowTraining(true)}
-               title="Train Model"
-               className="text-[#1effbc] hover:text-white transition-colors"
-            >
-               <i className="fas fa-cog"></i>
-            </button>
-            <div className="bg-[#0e2b1a] px-3 py-1 rounded-[30px] border border-[#1effbc] text-[#b0ffd0] text-xs items-center gap-2 hidden lg:flex">
-              <span className="w-[10px] h-[10px] bg-[#00ff9d] rounded-full shadow-[0_0_10px_#00ff9d] blink-led"></span>
-              <span>ROOT@HACK</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Console / Chat Area */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-[20px] py-[24px] flex flex-col gap-[20px] bg-[rgba(0,10,5,0.3)] scroll-smooth z-10">
-          {messages.length === 0 ? (
-             <div className="message animate-[fadeInUp_0.3s_ease]">
-               <div className="w-[42px] h-[42px] rounded-[8px] bg-[#11231a] border-[1.5px] border-[#1effbc] flex items-center justify-center text-[#1effbc] text-[1.4rem] shadow-[0_0_12px_rgba(0,255,156,0.2)] shrink-0">
-                 <i className="fas fa-robot"></i>
-               </div>
-               <div className="bg-[#0c1f16] border-[1.5px] border-[#1e5435] px-[20px] py-[16px] rounded-[18px] rounded-tl-[4px] text-[#c6ffe0] text-[0.95rem] leading-[1.6] shadow-[0_6px_0_#071009] break-words">
-                 <span className="text-[#1effbc]">▸ sys.boot // DevBot Pro v2.3.1</span><br/>
-                 └─ Conectado ao núcleo de IA híbrido.<br/>
-                 └─ <span className="text-[#9effcf]">$ _ inicializando memória vetorial e módulos fs/git...</span><br/>
-                 └─ Pronto para codar. O que vamos hackear hoje?
-               </div>
+        {/* Mobile Sidebar Overlay */}
+        {showMobileSidebar && (
+          <div className="fixed inset-0 z-50 md:hidden bg-black/60 flex">
+             <div className="w-64 h-full">
+                <ChatSessions 
+                  sessions={sessions}
+                  activeSessionId={activeSessionId}
+                  onSelect={(id) => { setActiveSessionId(id); setShowMobileSidebar(false); }}
+                  onNew={handleNewChat}
+                  onDelete={handleDeleteSession}
+                />
              </div>
-          ) : (
-             messages.map((m) => (
-                <MessageBubble key={m.id} message={m} />
-             ))
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+             <div className="flex-1" onClick={() => setShowMobileSidebar(false)}>
+                <button className="m-4 text-[#1effbc]"><X size={32} /></button>
+             </div>
+          </div>
+        )}
 
-        {/* Input Hacker Component */}
-        <div className="z-10">
-           <ChatInput 
-             onSend={handleSend} 
-             isLoading={isLoading} 
-             selectedModel={forceModel}
-             onModelChange={setForceModel}
-           />
+        <div className="flex-1 flex flex-col h-full overflow-hidden terminal-container">
+          {/* Terminal Header */}
+          <div className="bg-[#0c1612] px-4 py-[14px] border-b-2 border-[#1f4a2c] flex items-center justify-between relative overflow-hidden terminal-header-scan">
+            <div className="flex items-center gap-[10px] z-10">
+              <button 
+                onClick={() => setShowMobileSidebar(true)}
+                className="md:hidden text-[#1effbc] mr-2"
+              >
+                <Menu size={20} />
+              </button>
+              <div className="hidden sm:flex items-center gap-[10px]">
+                <div className="w-[12px] h-[12px] rounded-full bg-[#ff5f56] shadow-[0_0_8px_#ff5f56]" />
+                <div className="w-[12px] h-[12px] rounded-full bg-[#ffbd2e] shadow-[0_0_8px_#ffbd2e]" />
+                <div className="w-[12px] h-[12px] rounded-full bg-[#27c93f] shadow-[0_0_8px_#27c93f]" />
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-[12px] text-[#1effbc] font-medium tracking-[2px] z-10">
+              <i className="fas fa-terminal text-[1.2rem] glitch-icon"></i>
+              <span className="glitch-text text-sm sm:text-base">DEVBOT://PRO</span>
+            </div>
+
+            <div className="flex items-center gap-3 z-10">
+              <div className="w-24 sm:w-36">
+                  <ModelSelector value={forceModel} onChange={setForceModel} />
+              </div>
+              <button
+                 onClick={() => setShowTraining(true)}
+                 title="Train Model"
+                 className="text-[#1effbc] hover:text-white transition-colors"
+              >
+                 <Settings size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Console / Chat Area */}
+          <div className="flex-1 overflow-y-auto px-4 md:px-[30px] py-[24px] flex flex-col gap-[20px] bg-[rgba(0,10,5,0.4)] scroll-smooth z-10 custom-scrollbar">
+            {messages.length === 0 ? (
+               <div className="message animate-[fadeInUp_0.3s_ease]">
+                 <div className="w-[42px] h-[42px] rounded-[8px] bg-[#11231a] border-[1.5px] border-[#1effbc] flex items-center justify-center text-[#1effbc] text-[1.4rem] shadow-[0_0_12px_rgba(0,255,156,0.2)] shrink-0">
+                   <i className="fas fa-robot"></i>
+                 </div>
+                 <div className="bg-[#0c1f16] border-[1.5px] border-[#1e5435] px-[20px] py-[16px] rounded-[18px] rounded-tl-[4px] text-[#c6ffe0] text-[0.9rem] leading-[1.6] shadow-[0_6px_0_#071009] break-words">
+                   <span className="text-[#1effbc]">▸ sys.session.init [{activeSessionId}]</span><br/>
+                   └─ Conexão estabelecida com sucesso.<br/>
+                   └─ <span className="text-[#9effcf]">$ _ aguardando entrada de dados...</span><br/>
+                   <br/>
+                   O que vamos construir nesta sessão?
+                 </div>
+               </div>
+            ) : (
+               messages.map((m) => (
+                  <MessageBubble key={m.id} message={m} />
+               ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Hacker Component */}
+          <div className="z-10 bg-[#0c1612]">
+             <ChatInput 
+               onSend={handleSend} 
+               isLoading={isLoading} 
+               selectedModel={forceModel}
+               onModelChange={setForceModel}
+             />
+          </div>
         </div>
       </div>
       
@@ -160,3 +267,4 @@ export default function ChatPage() {
     </>
   );
 }
+
