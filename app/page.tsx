@@ -87,7 +87,7 @@ export default function ChatPage() {
           </div>
 
           <div className="flex items-center gap-3 z-10">
-            <div className="hidden md:block w-32">
+            <div className="w-28 sm:w-36">
                 <ModelSelector value={forceModel} onChange={setForceModel} />
             </div>
             <button
@@ -97,7 +97,7 @@ export default function ChatPage() {
             >
                <i className="fas fa-cog"></i>
             </button>
-            <div className="bg-[#0e2b1a] px-3 py-1 rounded-[30px] border border-[#1effbc] text-[#b0ffd0] text-xs flex items-center gap-2 hidden md:flex">
+            <div className="bg-[#0e2b1a] px-3 py-1 rounded-[30px] border border-[#1effbc] text-[#b0ffd0] text-xs items-center gap-2 hidden lg:flex">
               <span className="w-[10px] h-[10px] bg-[#00ff9d] rounded-full shadow-[0_0_10px_#00ff9d] blink-led"></span>
               <span>ROOT@HACK</span>
             </div>
@@ -128,7 +128,12 @@ export default function ChatPage() {
 
         {/* Input Hacker Component */}
         <div className="z-10">
-           <ChatInput onSend={handleSend} isLoading={isLoading} />
+           <ChatInput 
+             onSend={handleSend} 
+             isLoading={isLoading} 
+             selectedModel={forceModel}
+             onModelChange={setForceModel}
+           />
         </div>
       </div>
       
