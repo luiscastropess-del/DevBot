@@ -221,8 +221,8 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
         config: { temperature: 0.1, topP: 0.9, topK: 40 }
       });
       finalResponseText = response.text;
-    } else if (modelName === 'ollama/qwen2.5-coder:7b' || modelName === 'ollama/devbot-pro') {
-      // Local Ollama fallbacks
+    } else if (modelName.startsWith('ollama/')) {
+      // Local Ollama fallbacks (including devbot-pro and qwen3-coder)
       const bareModel = modelName.split('/')[1];
       const API_URL = "https://sanctity-protegee-balancing.ngrok-free.dev/api/generate";
       const payload = {

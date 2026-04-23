@@ -11,22 +11,27 @@ REGRAS INEGOCIÁVEIS:
 7. Nunca exiba resultados de execução de código, a menos que seja explicitamente solicitado.`;
 
 export async function generateChatClient(prompt: string, forceModel?: string) {
-  // If user forced a model
-  if (forceModel) {
-    return await callBackend(prompt, forceModel);
-  }
-
-  // We modified the fallback chain so EVERYTHING routes through the backend.
-  // This guarantees the backend Vector Memory RAG pipeline intercepts and augments ALL models.
-  const fallbackChain = [
-    { type: 'backend', id: 'ollama/qwen2.5-coder:7b' },
+  // Configured default preferred fallback chain for robustness
+  // If a model is offline or throws an error, the next is tried seamlessly.
+  const defaultChain = [
     { type: 'backend', id: 'ollama/devbot-pro' },
+    { type: 'backend', id: 'ollama/qwen2.5-coder:7b' },
     { type: 'backend', id: 'ollama/qwen3-coder:cloud' },
     { type: 'backend', id: 'googleai/gemini-3.1-pro-preview' },
     { type: 'backend', id: 'googleai/gemini-3.1-flash-lite-preview' }
   ];
 
+  // If a specific model is forced, we try it FIRST, then fallback to others if it crashes
+  let fallbackChain = [...defaultChain];
+  if (forceModel) {
+    // Remove the forced model if it's already in the chain to prevent double-checking
+    fallbackChain = fallbackChain.filter(m => m.id !== forceModel);
+    // Put the forced model at the very front of the execution queue
+    fallbackChain.unshift({ type: 'backend', id: forceModel });
+  }
+
   let lastError: any = null;
+  const attemptedModels: string[] = [];
 
   for (const model of fallbackChain) {
     try {
@@ -38,10 +43,11 @@ export async function generateChatClient(prompt: string, forceModel?: string) {
     } catch (e: any) {
       console.warn(`[Router] Model ${model.id} failed:`, e.message);
       lastError = e;
+      attemptedModels.push(model.id);
     }
   }
 
-  throw new Error(`All fallback models failed. Last error: ${lastError?.message || lastError}`);
+  throw new Error(`Fallback exhaustion. Attempted models: ${attemptedModels.join(', ')}. Last error: ${lastError?.message || lastError}`);
 }
 
 async function callGemini(prompt: string, modelId: string) {
