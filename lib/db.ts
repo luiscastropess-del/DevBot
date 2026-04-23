@@ -1,17 +1,19 @@
-import sqlite3 from 'sqlite3';
-import { open, Database } from 'sqlite';
-import path from 'path';
+import { Database } from 'sqlite';
 
-let db: Database | null = null;
+let db: any | null = null;
 
 export async function getDb() {
   if (db) return db;
 
+  const sqlite3 = await import('sqlite3');
+  const { open } = await import('sqlite');
+  const path = await import('path');
+  
   const dbPath = path.join(process.cwd(), 'database.sqlite');
   
   db = await open({
     filename: dbPath,
-    driver: sqlite3.Database
+    driver: sqlite3.default.Database
   });
 
   await db.exec(`

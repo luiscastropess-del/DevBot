@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getHistory, clearHistory } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const messages = await getHistory();
