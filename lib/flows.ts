@@ -261,8 +261,13 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
         throw new Error(`Model ${modelName} is not mapped correctly in the router.`);
     }
 
-    // Save this interaction to Vector Memory asynchronously
+    // Save this interaction to Vector Memory asynchronously for RAG
     remember("Histórico", `Usuário: ${prompt}\nDevBot: ${finalResponseText}`).catch(console.error);
+
+    // Save individual messages to SQLite for UI History persistence
+    const { saveMessage } = await import('./db');
+    await saveMessage('user', prompt);
+    await saveMessage('assistant', finalResponseText, modelName);
 
     return { resposta: finalResponseText, modeloUsado: modelName };
   } catch (error: any) {
