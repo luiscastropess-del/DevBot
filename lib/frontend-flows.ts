@@ -11,14 +11,15 @@ REGRAS INEGOCIÁVEIS:
 7. Nunca exiba resultados de execução de código, a menos que seja explicitamente solicitado.`;
 
 export async function generateChatClient(prompt: string, forceModel?: string) {
-  // Configured default preferred fallback chain for robustness
+  // Configured preferred fallback chain: Ollama as primary, Gemini as emergency.
   // If a model is offline or throws an error, the next is tried seamlessly.
   const defaultChain = [
     { type: 'backend', id: 'ollama/devbot-pro' },
     { type: 'backend', id: 'ollama/qwen2.5-coder:7b' },
     { type: 'backend', id: 'ollama/qwen3-coder:cloud' },
     { type: 'backend', id: 'googleai/gemini-3.1-pro-preview' },
-    { type: 'backend', id: 'googleai/gemini-3.1-flash-lite-preview' }
+    { type: 'backend', id: 'googleai/gemini-3.1-flash-lite-preview' },
+    { type: 'backend', id: 'googleai/gemini-2.5-flash-lite-preview' }
   ];
 
   // If a specific model is forced, we try it FIRST, then fallback to others if it crashes

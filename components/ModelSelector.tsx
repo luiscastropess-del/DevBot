@@ -22,6 +22,7 @@ export function ModelSelector({ value, onChange }: ModelSelectorProps) {
         <option value="googleai/gemini-3.1-pro-preview">[CLOUD] Gemini 3.1 Pro (Root)</option>
         <option value="googleai/gemini-3-flash-preview">[CLOUD] Gemini 3 Flash</option>
         <option value="googleai/gemini-3.1-flash-lite-preview">[CLOUD] Gemini 3.1 Lite</option>
+        <option value="googleai/gemini-2.5-flash-lite-preview">[CLOUD] Gemini 2.5 Flash Lite</option>
       </select>
       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[#2a9d5e]">
         <i className="fas fa-caret-down text-[14px]"></i>

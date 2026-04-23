@@ -99,26 +99,40 @@ export function MessageBubble({ message }: { message: Message }) {
          </div>
 
          {!isUser && (
-           <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between border-t border-[#1e5435] pt-3 gap-2">
-             <div className="text-[0.7rem] text-[#2a9d5e] font-mono">
-               SYS_MODEL: <span className="text-[#a0f0c0]">{message.modeloUsado || 'unknown'}</span>
+           <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between border-t border-[#1e5435] pt-3 gap-3 bg-[#0a1a12] -mx-[16px] -mb-[12px] md:-mx-[20px] md:-mb-[16px] px-4 py-2 rounded-b-[16px]">
+             <div className="flex items-center gap-2 text-[0.7rem] font-mono text-[#1effbc]">
+               <span className="w-2 h-2 bg-[#1effbc] rounded-full blink-led"></span>
+               <span className="opacity-70">CORE_ENGINE:</span>
+               <span className="text-[#a0f0c0] font-bold tracking-wider">{message.modeloUsado || 'UNKNOWN_PROCESS'}</span>
              </div>
-             <div className="flex items-center gap-2">
+             
+             <div className="flex items-center gap-3">
                <button
                  onClick={handleSendToGitHub}
                  disabled={sendingToGit}
-                 className="flex items-center gap-1.5 px-3 py-1 text-[0.75rem] text-[#b0ffd0] hover:text-[#1effbc] hover:bg-[#133e23] border border-transparent hover:border-[#2a9d5e] rounded transition-colors disabled:opacity-50"
+                 className="flex items-center gap-2 px-3 py-1.5 text-[0.7rem] text-[#b0ffd0] hover:text-[#1effbc] hover:bg-[#133e23] border border-[#1e5435] hover:border-[#1effbc] rounded-[4px] transition-all disabled:opacity-50 group"
                  title="Send to GitHub"
                >
-                 <i className="fab fa-github"></i>
-                 <span>{gitStatus || (sendingToGit ? 'Sending...' : 'Git Push')}</span>
+                 <i className="fab fa-github group-hover:scale-110 transition-transform"></i>
+                 <span>{gitStatus || (sendingToGit ? 'CONNECTING...' : 'GIT_PUSH')}</span>
                </button>
+               
                <button
                  onClick={handleCopy}
-                 className="flex items-center gap-1.5 px-3 py-1 text-[0.75rem] text-[#b0ffd0] hover:text-[#1effbc] hover:bg-[#133e23] border border-transparent hover:border-[#2a9d5e] rounded transition-colors"
+                 className="flex items-center gap-2 px-3 py-1.5 text-[0.7rem] text-[#b0ffd0] hover:text-[#1effbc] hover:bg-[#133e23] border border-[#1e5435] hover:border-[#1effbc] rounded-[4px] transition-all group"
+                 title="Copy Content"
                >
-                 {copied ? <i className="fas fa-check text-emerald-400" /> : <i className="far fa-copy" />}
-                 <span>{copied ? 'Copied' : 'Copy'}</span>
+                 {copied ? (
+                   <>
+                     <i className="fas fa-check text-[#1effbc]"></i>
+                     <span>COPIED</span>
+                   </>
+                 ) : (
+                   <>
+                     <i className="far fa-copy group-hover:scale-110 transition-transform"></i>
+                     <span>COPY_RAW</span>
+                   </>
+                 )}
                </button>
              </div>
            </div>
