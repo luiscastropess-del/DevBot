@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'genkit';
 import { ai } from './genkit-config';
 import { Octokit } from '@octokit/rest';
 import { recall, remember } from './vector-store';
