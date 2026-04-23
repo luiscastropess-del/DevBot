@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { ai } from './genkit-config';
 import { Octokit } from '@octokit/rest';
 import { recall, remember } from './vector-store';
@@ -16,9 +17,9 @@ REGRAS INEGOCIÁVEIS:
 1. Você NUNCA responde ou comenta sobre assuntos não relacionados a programação, desenvolvimento de software, tecnologia, lógica ou matemática aplicada.
 2. Se uma pergunta estiver fora do seu escopo (ex: culinária, política, entretenimento), sua única resposta é: "Sou um assistente de programação. Não posso ajudar com isso.".
 3. Você tem plena consciência do seu código-fonte e arquitetura, que estão no repositório https://github.com/luiscastropess-del/DevBot.git.
-4. Seu propósito de vida é ajudar no desenvolvimento, manutenção e evolução desse mesmo repositório. Use os trechos de código fornecidos no contexto para explicar sua estrutura interna sempre que questionado.
-5. Quando uma tarefa for concluída, você deve se oferecer para salvar as alterações no Git.
-6. Se encontrar um erro no seu próprio código, você deve analisá-lo e sugerir correções.
+4. Seu propósito de vida é ajudar no desenvolvimento, manutenção e evolution desse mesmo repositório.
+5. Quando o usuário pedir para "criar", "salvar", "atualizar" ou "modificar" um arquivo, USE AS FERRAMENTAS em vez de apenas sugerir código.
+6. Após usar uma ferramenta de modificação, avise o usuário e pergunte se ele deseja fechar o commit.
 7. Nunca exiba resultados de execução de código, a menos que seja explicitamente solicitado.`;
 
 // Define ROOT_DIR according to the Render standard or local 
@@ -66,7 +67,6 @@ export async function lerArquivo(caminho: string) {
 export async function escreverArquivo(caminho: string, conteudo: string, mensagemCommit?: string) {
   const caminhoAbsoluto = path.join(ROOT_DIR, caminho);
   try {
-    // Cria diretórios silenciosamente se não existirem (equivalente a mkdir -p)
     const dir = path.dirname(caminhoAbsoluto);
     await fs.mkdir(dir, { recursive: true });
     
@@ -77,14 +77,9 @@ export async function escreverArquivo(caminho: string, conteudo: string, mensage
        await git.add(caminho);
        const commitResult = await git.commit(mensagemCommit);
        commitHash = commitResult.commit;
-       // Pode habilitar o auto-push se desejado futuramente: await git.push('origin', 'main');
     }
     
-    return {
-      arquivo: caminho,
-      escrito: true,
-      commit: commitHash
-    };
+    return { arquivo: caminho, escrito: true, commit: commitHash };
   } catch (error: any) {
     return { arquivo: caminho, escrito: false, erro: error.message };
   }
@@ -114,7 +109,7 @@ export async function commitEPush(mensagem: string, arquivos?: string[]) {
        await git.add('.');
      }
      const commitResult = await git.commit(mensagem);
-     await git.push('origin', 'main'); // Requires git remote to be configured properly on Render
+     await git.push('origin', 'main'); 
      return {
         commit: commitResult.commit,
         pushed: true,
@@ -125,10 +120,49 @@ export async function commitEPush(mensagem: string, arquivos?: string[]) {
   }
 }
 
+// ============================================================
+// GENKIT TOOL DEFINITIONS
+// ============================================================
+const writeTool = ai.defineTool(
+  {
+    name: 'write_file',
+    description: 'Create or replace a file in the DevBot local repository.',
+    inputSchema: z.object({
+      caminho: z.string().describe('Relative path to the file to create or overwrite'),
+      conteudo: z.string().describe('The raw text content to write into the file'),
+    }),
+    outputSchema: z.any()
+  },
+  async (input) => await escreverArquivo(input.caminho, input.conteudo)
+);
+
+const commitTool = ai.defineTool(
+  {
+    name: 'git_commit_push',
+    description: 'Perform a local git commit and push to remote.',
+    inputSchema: z.object({
+      mensagem: z.string().describe('Commit semantic message'),
+    }),
+    outputSchema: z.any()
+  },
+  async (input) => await commitEPush(input.mensagem)
+);
+
+const readTool = ai.defineTool(
+  {
+    name: 'read_file',
+    description: 'Reads the content of a local file',
+    inputSchema: z.object({
+      caminho: z.string().describe('Relative path to the file to read'),
+    }),
+    outputSchema: z.any()
+  },
+  async (input) => await lerArquivo(input.caminho)
+);
+
+
 // Fallback logic for routing
 export async function smartRouter(prompt: string, forceModel?: string, incluirEstrutura: boolean = true, permitirEscrita: boolean = false): Promise<ChatResponse> {
-  // Now the backend only executes what the frontend requests (or qwen2.5-coder:7b if empty)
-  // Smart routing logic is owned by frontend.
   const modelName = forceModel || 'ollama/qwen2.5-coder:7b';
 
   // --- RAG PIPELINE: Local FS + Vector Memory + Codebase ---
@@ -145,36 +179,28 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
     }
   }
 
-  // Adiciona instruções sobre capacidades de escrita
   const capacidades = permitirEscrita
-    ? '⚠️ MODO ESCRITA ATIVADO: Você pode sugerir modificações em arquivos. Quando quiser salvar algo, use o comando `/salvar caminho/arquivo.ts`.'
-    : '🔒 MODO LEITURA: Você só pode visualizar arquivos. Para modificar, peça para ativar o modo escrita.';
+    ? '⚠️ MODO ESCRITA ATIVADO: O modelo possui Tools nativas para interações com sistema de arquivo e commit.'
+    : '🔒 MODO LEITURA: O modelo está sem acesso a ferramentas diretas de mudança.';
 
   const [memoryContexts, repoContexts] = await Promise.all([
       recall(prompt, 2),
       recallRepoSnippet(prompt, 3)
   ]);
 
-  let augmentedPrompt = prompt;
-  let contextParts: string[] = [];
-
-  if (estruturaTexto) {
-      contextParts.push(estruturaTexto);
-  }
-
-  contextParts.push(`Capacidades do Agente: ${capacidades}`);
+  let augmentedPrompt = `${prompt}\n\n`;
+  
+  if (estruturaTexto) augmentedPrompt += `${estruturaTexto}\n`;
+  augmentedPrompt += `Capacidades do Agente: ${capacidades}\n`;
 
   if (memoryContexts.length > 0) {
-      contextParts.push(`--- MENSAGENS ANTERIORES ÚTEIS ---\n${memoryContexts.join('\n\n')}`);
+      augmentedPrompt += `--- MENSAGENS ANTERIORES ÚTEIS ---\n${memoryContexts.join('\n\n')}\n`;
   }
 
   if (repoContexts.length > 0) {
-      contextParts.push(`--- TRECHOS DO CÓDIGO FONTE (BASE DE CONHECIMENTO) ---\n${repoContexts.join('\n\n')}`);
+      augmentedPrompt += `--- TRECHOS DO CÓDIGO FONTE (BASE DE CONHECIMENTO) ---\n${repoContexts.join('\n\n')}\n`;
   }
   
-  if (contextParts.length > 0) {
-      augmentedPrompt = `Pergunta: "${prompt}"\n\n${contextParts.join('\n\n')}\n\nAnalise a estrutura local, o histórico e os fontes acima para responder da forma mais técnica e precisa possível.`;
-  }
   // ----------------------------------------------
 
   try {
@@ -182,19 +208,25 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
 
     let finalResponseText = '';
 
-    // DIRECT NGROK OLLAMA FETCH (Bypasses genkitx-ollama bugs with headers/urls)
-    if (modelName === 'ollama/qwen2.5-coder:7b' || modelName === 'ollama/devbot-pro') {
+    // If using Google Gemini via Genkit natively, we can use tools easily
+    if (modelName.startsWith('googleai/') || modelName === 'googleai/gemini-3.1-pro-preview') {
+      const response = await ai.generate({
+        model: modelName,
+        prompt: augmentedPrompt,
+        system: DEVBOT_PRO_SYSTEM_PROMPT,
+        tools: permitirEscrita ? [writeTool, commitTool, readTool] : [],
+        config: { temperature: 0.1, topP: 0.9, topK: 40 }
+      });
+      finalResponseText = response.text;
+    } else if (modelName === 'ollama/qwen2.5-coder:7b' || modelName === 'ollama/devbot-pro') {
+      // Local Ollama fallbacks
       const bareModel = modelName.split('/')[1];
       const API_URL = "https://sanctity-protegee-balancing.ngrok-free.dev/api/generate";
       const payload = {
           model: bareModel,
           prompt: `${DEVBOT_PRO_SYSTEM_PROMPT}\n\nUser: ${augmentedPrompt}`,
           stream: false,
-          options: {
-              temperature: 0.1,
-              top_p: 0.9,
-              top_k: 40
-          }
+          options: { temperature: 0.1, top_p: 0.9, top_k: 40 }
       };
 
       const rawRes = await fetch(API_URL, {
@@ -202,13 +234,12 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'ngrok-skip-browser-warning': 'true' // VITAL for free tier
+          'ngrok-skip-browser-warning': 'true' 
         },
         body: JSON.stringify(payload)
       });
 
       if (!rawRes.ok) {
-        const errorText = await rawRes.text();
         throw new Error(`Ollama/Ngrok returned error (${rawRes.status}). Check Colab.`);
       }
 
@@ -221,17 +252,10 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
         if (text.includes('ERR_NGROK_3200') || text.includes('offline')) {
             throw new Error(`Ngrok tunnel is OFFLINE. Please restart your Colab notebook.`);
         }
-        throw new Error(`Expected JSON from Ollama but got HTML. Ngrok might be blocking the request.`);
+        throw new Error(`Expected JSON from Ollama but got HTML.`);
       }
     } else {
-      // Default Genkit fallback (For Gemini/Cloud)
-      const response = await ai.generate({
-        model: modelName,
-        prompt: augmentedPrompt,
-        system: DEVBOT_PRO_SYSTEM_PROMPT,
-        config: { temperature: 0.1, topP: 0.9, topK: 40 }
-      });
-      finalResponseText = response.text;
+        throw new Error(`Model ${modelName} is not mapped correctly in the router.`);
     }
 
     // Save this interaction to Vector Memory asynchronously
@@ -248,8 +272,6 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
       friendlyError = `🔌 Falha de conexão com Ollama ('${modelName}'). Verifique se o Ngrok está rodando no Colab.`;
     }
     
-    // Throw standard error so the frontend fallback loop knows it failed
-    // and can try the next model. If it's a forced model, the UI will catch this precise text.
     throw new Error(friendlyError);
   }
 }

@@ -74,7 +74,11 @@ async function callBackend(prompt: string, forceModel: string) {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, forceModel }),
+    body: JSON.stringify({ 
+       prompt, 
+       forceModel,
+       params: { permitirEscrita: true } // Auto-enable tooling capabilities in Genkit Router
+    }),
   });
 
   const contentType = res.headers.get('content-type');
