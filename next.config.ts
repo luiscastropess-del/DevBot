@@ -8,7 +8,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  serverExternalPackages: ['@opentelemetry/sdk-node', 'genkit', '@genkit-ai/core'],
   // Allow access to remote image placeholder.
   images: {
     remotePatterns: [
