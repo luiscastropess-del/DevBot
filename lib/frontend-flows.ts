@@ -46,21 +46,28 @@ export async function generateChatClient(prompt: string, forceModel?: string) {
 
 async function callGemini(prompt: string, modelId: string) {
   const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("NEXT_PUBLIC_GEMINI_API_KEY is missing in browser environment.");
+  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+    throw new Error("CHAVE API INVÁLIDA: Sua GEMINI_API_KEY está incorreta ou vazia. Por favor, acesse o menu Settings > Secrets no AI Studio.");
   }
-  const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: modelId,
-    contents: prompt,
-    config: {
-      systemInstruction: DEVBOT_PRO_SYSTEM_PROMPT,
-      temperature: 0.1,
-      topP: 0.9,
-      topK: 40,
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: modelId,
+      contents: prompt,
+      config: {
+        systemInstruction: DEVBOT_PRO_SYSTEM_PROMPT,
+        temperature: 0.1,
+        topP: 0.9,
+        topK: 40,
+      }
+    });
+    return { resposta: response.text || "No response text", modeloUsado: `googleai/${modelId}` };
+  } catch(e: any) {
+    if (e.message?.includes('API_KEY_INVALID') || e.message?.includes('API key not valid')) {
+       throw new Error("CHAVE API INVÁLIDA: A chave do Gemini fornecida foi rejeitada pelo Google. Verifique os Segredos (Secrets) no seu ambiente.");
     }
-  });
-  return { resposta: response.text || "No response text", modeloUsado: `googleai/${modelId}` };
+    throw e;
+  }
 }
 
 async function callBackend(prompt: string, forceModel: string) {

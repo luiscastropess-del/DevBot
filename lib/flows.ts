@@ -4,6 +4,7 @@ import { recall, remember } from './vector-store';
 import { recallRepoSnippet } from './repo-indexer';
 import fs from 'fs/promises';
 import path from 'path';
+import simpleGit, { SimpleGit } from 'simple-git';
 
 export interface ChatResponse {
   resposta: string;
@@ -24,6 +25,8 @@ REGRAS INEGOCIÁVEIS:
 const ROOT_DIR = process.env.NODE_ENV === 'production' 
   ? '/opt/render/project/src' 
   : process.cwd();
+
+const git: SimpleGit = simpleGit(ROOT_DIR);
 
 // ============================================================
 // DIRECT LOCAL FILESYSTEM AWARENESS 
@@ -57,8 +60,73 @@ export async function lerArquivo(caminho: string) {
   }
 }
 
+// ============================================================
+// LOCAL WRITE AND COMMIT OPERATIONS
+// ============================================================
+export async function escreverArquivo(caminho: string, conteudo: string, mensagemCommit?: string) {
+  const caminhoAbsoluto = path.join(ROOT_DIR, caminho);
+  try {
+    // Cria diretórios silenciosamente se não existirem (equivalente a mkdir -p)
+    const dir = path.dirname(caminhoAbsoluto);
+    await fs.mkdir(dir, { recursive: true });
+    
+    await fs.writeFile(caminhoAbsoluto, conteudo, 'utf-8');
+    
+    let commitHash = undefined;
+    if (mensagemCommit) {
+       await git.add(caminho);
+       const commitResult = await git.commit(mensagemCommit);
+       commitHash = commitResult.commit;
+       // Pode habilitar o auto-push se desejado futuramente: await git.push('origin', 'main');
+    }
+    
+    return {
+      arquivo: caminho,
+      escrito: true,
+      commit: commitHash
+    };
+  } catch (error: any) {
+    return { arquivo: caminho, escrito: false, erro: error.message };
+  }
+}
+
+export async function statusGit() {
+   try {
+     const status = await git.status();
+     return {
+        branch: status.current || 'main',
+        modificados: status.modified,
+        novos: status.not_added,
+        deletados: status.deleted,
+        ahead: status.ahead,
+        behind: status.behind,
+     };
+   } catch(e: any) {
+      return { erro: e.message };
+   }
+}
+
+export async function commitEPush(mensagem: string, arquivos?: string[]) {
+  try {
+     if (arquivos && arquivos.length > 0) {
+       await git.add(arquivos);
+     } else {
+       await git.add('.');
+     }
+     const commitResult = await git.commit(mensagem);
+     await git.push('origin', 'main'); // Requires git remote to be configured properly on Render
+     return {
+        commit: commitResult.commit,
+        pushed: true,
+        resumo: commitResult.summary?.changes + ' alterações' || 'ok',
+     };
+  } catch(e: any) {
+     throw new Error(`Falha no Git: ${e.message}`);
+  }
+}
+
 // Fallback logic for routing
-export async function smartRouter(prompt: string, forceModel?: string, incluirEstrutura: boolean = true): Promise<ChatResponse> {
+export async function smartRouter(prompt: string, forceModel?: string, incluirEstrutura: boolean = true, permitirEscrita: boolean = false): Promise<ChatResponse> {
   // Now the backend only executes what the frontend requests (or qwen2.5-coder:7b if empty)
   // Smart routing logic is owned by frontend.
   const modelName = forceModel || 'ollama/qwen2.5-coder:7b';
@@ -77,6 +145,11 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
     }
   }
 
+  // Adiciona instruções sobre capacidades de escrita
+  const capacidades = permitirEscrita
+    ? '⚠️ MODO ESCRITA ATIVADO: Você pode sugerir modificações em arquivos. Quando quiser salvar algo, use o comando `/salvar caminho/arquivo.ts`.'
+    : '🔒 MODO LEITURA: Você só pode visualizar arquivos. Para modificar, peça para ativar o modo escrita.';
+
   const [memoryContexts, repoContexts] = await Promise.all([
       recall(prompt, 2),
       recallRepoSnippet(prompt, 3)
@@ -88,6 +161,8 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
   if (estruturaTexto) {
       contextParts.push(estruturaTexto);
   }
+
+  contextParts.push(`Capacidades do Agente: ${capacidades}`);
 
   if (memoryContexts.length > 0) {
       contextParts.push(`--- MENSAGENS ANTERIORES ÚTEIS ---\n${memoryContexts.join('\n\n')}`);
@@ -166,14 +241,16 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
   } catch (error: any) {
     let friendlyError = error.message;
     if (friendlyError?.includes('unauthorized')) {
-      friendlyError = 'Authentication error. Please check your OLLAMA_API_KEY in the AI Studio settings.';
+      friendlyError = '⚠️ Erro de Autenticação. Verifique seu OLLAMA_API_KEY.';
+    } else if (friendlyError?.includes('API_KEY_INVALID') || friendlyError?.includes('API key not valid')) {
+      friendlyError = '🔑 **CHAVE API INVÁLIDA**: Sua `GEMINI_API_KEY` está incorreta ou vazia. Por favor, acesse o menu **Settings > Secrets** no Google AI Studio (ou defina a variável `NEXT_PUBLIC_GEMINI_API_KEY`) e insira uma chave válida.';
     } else if (friendlyError?.includes('Unexpected end of JSON input') || friendlyError?.includes('ECONNREFUSED') || friendlyError?.includes('fetch failed')) {
-      friendlyError = `Could not connect to Ollama server for model '${modelName}'. Check if Ngrok is running and your token is valid.`;
+      friendlyError = `🔌 Falha de conexão com Ollama ('${modelName}'). Verifique se o Ngrok está rodando no Colab.`;
     }
     
-    console.warn(`[Genkit/Direct] Model ${modelName} failed:`, friendlyError);
-    // Throwing so the frontend router catches and rolls over or displays it
-    throw new Error(`Failed to map AI model '${modelName}': ${friendlyError}`);
+    // Throw standard error so the frontend fallback loop knows it failed
+    // and can try the next model. If it's a forced model, the UI will catch this precise text.
+    throw new Error(friendlyError);
   }
 }
 

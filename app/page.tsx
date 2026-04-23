@@ -46,11 +46,20 @@ export default function ChatPage() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (error: any) {
+      let finalMessage = error.message;
+
+      // Extract specific friendly errors to prevent scary UI dumps
+      if (finalMessage.includes('CHAVE API INVÁLIDA')) {
+         finalMessage = "🔑 **CHAVE API INVÁLIDA**: Sua `GEMINI_API_KEY` está incorreta ou vazia. Por favor, acesse o menu **Settings > Secrets** no Google AI Studio (ou defina a variável de ambiente) e insira uma chave válida.";
+      } else if (finalMessage.includes('Falha de conexão com Ollama')) {
+         finalMessage = "🔌 **Modelos Offline**: Não consegui conectar no Ollama (Ngrok). Se você está no AI Studio, tenha certeza de configurar também a Gemini Key.";
+      }
+
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `**System Error:** Could not connect to AI. \n\`\`\`text\n${error.message}\n\`\`\``,
-        modeloUsado: 'System Error',
+        content: finalMessage,
+        modeloUsado: 'Erro de Configuração',
       };
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
