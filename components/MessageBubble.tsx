@@ -20,17 +20,17 @@ export function MessageBubble({ message }: { message: Message }) {
   const [sendingToGit, setSendingToGit] = useState(false);
   const [gitStatus, setGitStatus] = useState<string | null>(null);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleSendToGitHub = async () => {
+    // ... execution logic remains the same
     setSendingToGit(true);
     setGitStatus(null);
     try {
-      // Find code blocks to extract if any, otherwise push markdown
       const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/;
       const match = message.content.match(codeBlockRegex);
       
@@ -38,7 +38,6 @@ export function MessageBubble({ message }: { message: Message }) {
       let pathTemplate = `docs/generated-${Date.now()}.md`;
 
       if (match && match[2]) {
-        // If we found a code block, push just the code and use the appropriate extension
         const lang = match[1] || 'txt';
         let ext = lang;
         if (lang === 'typescript') ext = 'ts';
@@ -57,15 +56,9 @@ export function MessageBubble({ message }: { message: Message }) {
           content: finalContent,
         }),
       });
-      if (res.ok) {
-        setGitStatus('Sent!');
-      } else {
-        const errorData = await res.json();
-        console.error(errorData);
-        setGitStatus('Failed');
-      }
+      if (res.ok) setGitStatus('Sent!');
+      else setGitStatus('Failed');
     } catch (err) {
-      console.error(err);
       setGitStatus('Error');
     } finally {
       setSendingToGit(false);
@@ -73,13 +66,45 @@ export function MessageBubble({ message }: { message: Message }) {
     }
   };
 
+  const CodeComponent = ({ inline, className, children, ...props }: any) => {
+    const match = /language-(\w+)/.exec(className || '');
+    const codeString = String(children).replace(/\n$/, '');
+    const [blockCopied, setBlockCopied] = useState(false);
+
+    const handleBlockCopy = () => {
+      navigator.clipboard.writeText(codeString);
+      setBlockCopied(true);
+      setTimeout(() => setBlockCopied(false), 2000);
+    };
+
+    if (inline) {
+       return <code className="bg-[#11231a] text-[#1effbc] px-1 rounded" {...props}>{children}</code>;
+    }
+
+    return (
+      <div className="relative group my-4">
+        <div className="rounded-lg overflow-hidden border border-[#1e5435] bg-[#071009]">
+           <pre className={`${className} p-4 pb-12 overflow-x-auto`} {...props}>
+             <code>{children}</code>
+           </pre>
+           <button
+             onClick={handleBlockCopy}
+             className="absolute bottom-2 right-4 flex items-center gap-2 px-3 py-1 text-[0.65rem] font-mono bg-[#0b1711] border border-[#1e5435] text-[#1effbc] hover:border-[#1effbc] transition-all rounded"
+           >
+             {blockCopied ? <><Check size={12} /> COPIED</> : <><Copy size={12} /> COPY_CODE</>}
+           </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
-     <div className={`message animate-[fadeInUp_0.3s_ease] ${isUser ? 'user self-end flex-row-reverse' : ''} flex gap-4 max-w-[95%] md:max-w-[85%]`}>
+     <div className={`message animate-[fadeInUp_0.3s_ease] mx-auto flex gap-4 w-full max-w-[95%] md:max-w-[85%] ${isUser ? 'flex-row-reverse' : ''}`}>
        <div className={`w-[42px] h-[42px] rounded-[8px] flex items-center justify-center shrink-0 shadow-[0_0_12px_rgba(0,255,156,0.2)] text-[1.4rem] border-[1.5px] ${isUser ? 'bg-[#1a2a22] border-[#3affb0] text-[#1effbc]' : 'bg-[#11231a] border-[#1effbc] text-[#1effbc]'}`}>
           {isUser ? <i className="fas fa-user-secret text-[1.1rem]"></i> : <i className="fas fa-robot text-[1.1rem]"></i>}
        </div>
        
-       <div className={`border-[1.5px] px-[16px] py-[12px] md:px-[20px] md:py-[16px] text-[0.95rem] leading-[1.6] break-words flex flex-col justify-between
+       <div className={`border-[1.5px] px-[16px] py-[12px] md:px-[20px] md:py-[16px] text-[0.95rem] leading-[1.6] break-words flex flex-col justify-between flex-1
           ${isUser 
              ? 'bg-[#153621] border-[#2a9d5e] rounded-[18px] rounded-tr-[4px] text-[#e2ffed] shadow-[0_6px_0_#0c2013]' 
              : 'bg-[#0c1f16] border-[#1e5435] rounded-[18px] rounded-tl-[4px] text-[#c6ffe0] shadow-[0_6px_0_#071009]'
@@ -92,6 +117,9 @@ export function MessageBubble({ message }: { message: Message }) {
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeHighlight]}
+                components={{
+                  code: CodeComponent
+                }}
               >
                 {message.content}
               </ReactMarkdown>
@@ -118,7 +146,7 @@ export function MessageBubble({ message }: { message: Message }) {
                </button>
                
                <button
-                 onClick={handleCopy}
+                 onClick={() => handleCopy(message.content)}
                  className="flex items-center gap-2 px-3 py-1.5 text-[0.7rem] text-[#b0ffd0] hover:text-[#1effbc] hover:bg-[#133e23] border border-[#1e5435] hover:border-[#1effbc] rounded-[4px] transition-all group"
                  title="Copy Content"
                >

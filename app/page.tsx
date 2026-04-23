@@ -22,6 +22,24 @@ export default function ChatPage() {
   const [showTraining, setShowTraining] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Load history on mount
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const res = await fetch('/api/history');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.history && data.history.length > 0) {
+            setMessages(data.history);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load history:", e);
+      }
+    };
+    loadHistory();
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
