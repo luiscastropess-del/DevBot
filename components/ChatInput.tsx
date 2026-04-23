@@ -1,16 +1,30 @@
 'use client';
 
 import React, { useState, FormEvent, useRef, useEffect } from 'react';
-import { Send, Terminal } from 'lucide-react';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
   isLoading: boolean;
 }
 
+const placeholders = [
+  'digite um comando ou pergunta...',
+  '> conectando ao ollama...',
+  '> reescrevendo sistema de arquivos...',
+  '> invadir mainframe...'
+];
+
 export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [input, setInput] = useState('');
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlaceholderIdx((prev) => (prev + 1) % placeholders.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -30,32 +44,31 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
     }
   }, [input]);
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-[#0b0d14] border-t border-[#2d3345]">
-      <div className="max-w-4xl mx-auto relative flex items-end bg-[#141822] rounded-lg border border-[#2d3345] focus-within:border-indigo-500 overflow-hidden px-3 py-2 shadow-inner">
-        <Terminal className="text-gray-500 mb-2 mr-2 shrink-0" size={20} />
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask DevBot Pro to code..."
-          className="w-full max-h-48 resize-none bg-transparent text-gray-200 focus:outline-none py-1 placeholder-gray-600 font-mono text-sm leading-relaxed"
-          rows={1}
-          disabled={isLoading}
-        />
-        <button
-          type="submit"
-          disabled={!input.trim() || isLoading}
-          className="ml-2 mb-1 p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-indigo-600 disabled:opacity-50 disabled:hover:bg-transparent transition-colors shrink-0"
-        >
-          <Send size={18} />
-        </button>
-      </div>
+    <form onSubmit={handleSubmit} className="px-[24px] py-[20px] bg-[#0b1711] border-t-[2px] border-[#1f4a2c] flex gap-[16px] items-center rounded-b-[12px] md:rounded-b-[18px]">
+       <span className="text-[#1effbc] text-[1.8rem] font-bold pulse-prompt hidden sm:block shrink-0">&gt;</span>
+       <textarea
+         ref={textareaRef}
+         value={input}
+         onChange={(e) => setInput(e.target.value)}
+         onKeyDown={handleKeyDown}
+         placeholder={placeholders[placeholderIdx]}
+         disabled={isLoading}
+         rows={1}
+         autoFocus
+         className="flex-1 bg-transparent border-none outline-none text-[#d0ffdd] font-mono text-[1rem] py-[12px] caret-[#1effbc] placeholder:text-[#2a6e4a] placeholder:italic resize-none overflow-hidden h-auto max-h-[120px]"
+       />
+       <button
+         type="submit"
+         disabled={!input.trim() || isLoading}
+         className="bg-[#133e23] border-[1.5px] border-[#1effbc] text-[#1effbc] w-[50px] h-[50px] rounded-[16px] flex items-center justify-center text-[1.4rem] cursor-pointer transition-all shadow-[0_4px_0_#0a1f12] hover:bg-[#1a5e33] hover:-translate-y-[2px] hover:shadow-[0_6px_0_#0a1f12,0_0_20px_#00ff9d55] active:translate-y-[2px] active:shadow-[0_2px_0_#0a1f12] disabled:opacity-50 shrink-0"
+       >
+         <i className="fas fa-paper-plane"></i>
+       </button>
     </form>
   );
 }

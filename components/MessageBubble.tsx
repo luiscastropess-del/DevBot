@@ -74,22 +74,18 @@ export function MessageBubble({ message }: { message: Message }) {
   };
 
   return (
-    <div className={`py-6 px-4 md:px-0 ${isUser ? 'bg-[#0b0d14]' : 'bg-[#141822] border-y border-[#1e2330]'}`}>
-      <div className="max-w-4xl mx-auto flex gap-4">
-        <div className="shrink-0 mt-1">
-          {isUser ? (
-            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
-              <User size={18} className="text-white" />
-            </div>
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center">
-              <Bot size={18} className="text-[#0b0d14]" />
-            </div>
-          )}
-        </div>
-        
-        <div className="flex-1 overflow-x-auto min-w-0">
-          <div className="markdown-body text-gray-200">
+     <div className={`message animate-[fadeInUp_0.3s_ease] ${isUser ? 'user self-end flex-row-reverse' : ''} flex gap-4 max-w-[95%] md:max-w-[85%]`}>
+       <div className={`w-[42px] h-[42px] rounded-[8px] flex items-center justify-center shrink-0 shadow-[0_0_12px_rgba(0,255,156,0.2)] text-[1.4rem] border-[1.5px] ${isUser ? 'bg-[#1a2a22] border-[#3affb0] text-[#1effbc]' : 'bg-[#11231a] border-[#1effbc] text-[#1effbc]'}`}>
+          {isUser ? <i className="fas fa-user-secret text-[1.1rem]"></i> : <i className="fas fa-robot text-[1.1rem]"></i>}
+       </div>
+       
+       <div className={`border-[1.5px] px-[16px] py-[12px] md:px-[20px] md:py-[16px] text-[0.95rem] leading-[1.6] break-words flex flex-col justify-between
+          ${isUser 
+             ? 'bg-[#153621] border-[#2a9d5e] rounded-[18px] rounded-tr-[4px] text-[#e2ffed] shadow-[0_6px_0_#0c2013]' 
+             : 'bg-[#0c1f16] border-[#1e5435] rounded-[18px] rounded-tl-[4px] text-[#c6ffe0] shadow-[0_6px_0_#071009]'
+          }`}
+       >
+         <div className="markdown-body flex-1 overflow-x-auto min-w-0 pb-2">
             {isUser ? (
               <p className="whitespace-pre-wrap">{message.content}</p>
             ) : (
@@ -100,35 +96,34 @@ export function MessageBubble({ message }: { message: Message }) {
                 {message.content}
               </ReactMarkdown>
             )}
-          </div>
-          
-          {!isUser && (
-            <div className="mt-4 flex items-center justify-between border-t border-[#2d3345] pt-3">
-              <div className="text-xs text-gray-500 font-mono">
-                Model: <span className="text-gray-400">{message.modeloUsado || 'unknown'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleSendToGitHub}
-                  disabled={sendingToGit}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-[#2d3345] rounded transition-colors disabled:opacity-50"
-                  title="Send to GitHub"
-                >
-                  <Github size={14} />
-                  <span>{gitStatus || (sendingToGit ? 'Sending...' : 'Git Push')}</span>
-                </button>
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-[#2d3345] rounded transition-colors"
-                >
-                  {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                  <span>{copied ? 'Copied' : 'Copy'}</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+         </div>
+
+         {!isUser && (
+           <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between border-t border-[#1e5435] pt-3 gap-2">
+             <div className="text-[0.7rem] text-[#2a9d5e] font-mono">
+               SYS_MODEL: <span className="text-[#a0f0c0]">{message.modeloUsado || 'unknown'}</span>
+             </div>
+             <div className="flex items-center gap-2">
+               <button
+                 onClick={handleSendToGitHub}
+                 disabled={sendingToGit}
+                 className="flex items-center gap-1.5 px-3 py-1 text-[0.75rem] text-[#b0ffd0] hover:text-[#1effbc] hover:bg-[#133e23] border border-transparent hover:border-[#2a9d5e] rounded transition-colors disabled:opacity-50"
+                 title="Send to GitHub"
+               >
+                 <i className="fab fa-github"></i>
+                 <span>{gitStatus || (sendingToGit ? 'Sending...' : 'Git Push')}</span>
+               </button>
+               <button
+                 onClick={handleCopy}
+                 className="flex items-center gap-1.5 px-3 py-1 text-[0.75rem] text-[#b0ffd0] hover:text-[#1effbc] hover:bg-[#133e23] border border-transparent hover:border-[#2a9d5e] rounded transition-colors"
+               >
+                 {copied ? <i className="fas fa-check text-emerald-400" /> : <i className="far fa-copy" />}
+                 <span>{copied ? 'Copied' : 'Copy'}</span>
+               </button>
+             </div>
+           </div>
+         )}
+       </div>
+     </div>
   );
 }

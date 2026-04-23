@@ -6,7 +6,7 @@ import { ModelSelector } from '@/components/ModelSelector';
 import { ChatInput } from '@/components/ChatInput';
 import { MessageBubble } from '@/components/MessageBubble';
 import { TrainingPanel } from '@/components/TrainingPanel';
-import { BrainCircuit, Settings, Github } from 'lucide-react';
+import { Settings } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -68,63 +68,72 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#0b0d14] text-gray-200">
-      {/* Header */}
-      <header className="flex-none bg-[#141822] border-b border-[#2d3345] px-4 md:px-6 py-3 md:py-4 flex items-center justify-between z-10 shadow-md">
-        <div className="flex items-center space-x-2 md:space-x-3">
-          <div className="bg-indigo-600 p-1.5 md:p-2 rounded-lg shrink-0">
-            <BrainCircuit size={20} className="text-white md:w-6 md:h-6" />
+    <>
+      <div className="cyber-grid" />
+      
+      <div className="flex flex-col h-[95vh] md:h-[90vh] max-h-[800px] w-full max-w-[1000px] mx-auto z-20 relative terminal-container rounded-[12px] md:rounded-[20px] overflow-hidden mt-2 md:mt-[5vh]">
+        {/* Terminal Header */}
+        <div className="bg-[#0c1612] px-4 py-[14px] border-b-2 border-[#1f4a2c] flex items-center justify-between relative overflow-hidden terminal-header-scan rounded-t-[12px] md:rounded-t-[18px]">
+          <div className="flex items-center gap-[10px] z-10">
+            <div className="w-[14px] h-[14px] rounded-full bg-[#ff5f56] shadow-[0_0_8px_#ff5f56]" />
+            <div className="w-[14px] h-[14px] rounded-full bg-[#ffbd2e] shadow-[0_0_8px_#ffbd2e]" />
+            <div className="w-[14px] h-[14px] rounded-full bg-[#27c93f] shadow-[0_0_8px_#27c93f]" />
           </div>
-          <div className="min-w-0 hidden sm:block">
-            <h1 className="text-md md:text-lg font-bold text-white tracking-wide truncate">DevBot Pro</h1>
-            <div className="flex items-center space-x-2 text-xs text-emerald-400">
-              <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="truncate">Online</span>
+          
+          <div className="flex items-center gap-[12px] text-[#1effbc] font-medium tracking-[2px] z-10">
+            <i className="fas fa-terminal text-[1.4rem] glitch-icon"></i>
+            <span className="glitch-text hidden sm:inline">DEVBOT://PRO</span>
+            <span className="glitch-text sm:hidden">DEVBOT</span>
+          </div>
+
+          <div className="flex items-center gap-3 z-10">
+            <div className="hidden md:block w-32">
+                <ModelSelector value={forceModel} onChange={setForceModel} />
+            </div>
+            <button
+               onClick={() => setShowTraining(true)}
+               title="Train Model"
+               className="text-[#1effbc] hover:text-white transition-colors"
+            >
+               <i className="fas fa-cog"></i>
+            </button>
+            <div className="bg-[#0e2b1a] px-3 py-1 rounded-[30px] border border-[#1effbc] text-[#b0ffd0] text-xs flex items-center gap-2 hidden md:flex">
+              <span className="w-[10px] h-[10px] bg-[#00ff9d] rounded-full shadow-[0_0_10px_#00ff9d] blink-led"></span>
+              <span>ROOT@HACK</span>
             </div>
           </div>
         </div>
-        
-        <div className="flex items-center space-x-2 md:space-x-4 shrink-0">
-          <div className="block">
-            <ModelSelector value={forceModel} onChange={setForceModel} />
-          </div>
-          <button
-            onClick={() => setShowTraining(true)}
-            className="flex items-center space-x-2 bg-[#2d3345] hover:bg-gray-600 px-3 py-2 rounded text-sm transition-colors font-medium border border-transparent hover:border-gray-500"
-          >
-            <Settings size={16} />
-            <span className="hidden sm:inline">Train Model</span>
-          </button>
+
+        {/* Console / Chat Area */}
+        <div className="flex-1 overflow-y-auto px-4 md:px-[20px] py-[24px] flex flex-col gap-[20px] bg-[rgba(0,10,5,0.3)] scroll-smooth z-10">
+          {messages.length === 0 ? (
+             <div className="message animate-[fadeInUp_0.3s_ease]">
+               <div className="w-[42px] h-[42px] rounded-[8px] bg-[#11231a] border-[1.5px] border-[#1effbc] flex items-center justify-center text-[#1effbc] text-[1.4rem] shadow-[0_0_12px_rgba(0,255,156,0.2)] shrink-0">
+                 <i className="fas fa-robot"></i>
+               </div>
+               <div className="bg-[#0c1f16] border-[1.5px] border-[#1e5435] px-[20px] py-[16px] rounded-[18px] rounded-tl-[4px] text-[#c6ffe0] text-[0.95rem] leading-[1.6] shadow-[0_6px_0_#071009] break-words">
+                 <span className="text-[#1effbc]">▸ sys.boot // DevBot Pro v2.3.1</span><br/>
+                 └─ Conectado ao núcleo de IA híbrido.<br/>
+                 └─ <span className="text-[#9effcf]">$ _ inicializando memória vetorial e módulos fs/git...</span><br/>
+                 └─ Pronto para codar. O que vamos hackear hoje?
+               </div>
+             </div>
+          ) : (
+             messages.map((m) => (
+                <MessageBubble key={m.id} message={m} />
+             ))
+          )}
+          <div ref={messagesEndRef} />
         </div>
-      </header>
 
-      {/* Main Chat Area */}
-      <main className="flex-1 overflow-y-auto relative bg-[#0b0d14]">
-        {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-6 opacity-75">
-            <BrainCircuit size={48} className="text-[#2d3345] mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">Welcome to DevBot Pro</h2>
-            <p className="text-gray-400 max-w-md">
-              Your resilient AI developer. Queries route to local models first for privacy and speed, falling back to cloud capabilities (Gemini 3 Pro) for complex architectural tasks.
-            </p>
-          </div>
-        ) : (
-          <div className="pb-8">
-            {messages.map((m) => (
-              <MessageBubble key={m.id} message={m} />
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </main>
-
-      {/* Footer / Input */}
-      <div className="flex-none bg-[#141822]">
-        <ChatInput onSend={handleSend} isLoading={isLoading} />
+        {/* Input Hacker Component */}
+        <div className="z-10">
+           <ChatInput onSend={handleSend} isLoading={isLoading} />
+        </div>
       </div>
-
-      {/* Training Panel Overlay */}
+      
+      {/* Modals */}
       {showTraining && <TrainingPanel onClose={() => setShowTraining(false)} />}
-    </div>
+    </>
   );
 }

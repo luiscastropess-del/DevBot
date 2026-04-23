@@ -131,9 +131,10 @@ const writeTool = ai.defineTool(
       caminho: z.string().describe('Relative path to the file to create or overwrite'),
       conteudo: z.string().describe('The raw text content to write into the file'),
     }),
-    outputSchema: z.any()
   },
-  async (input) => await escreverArquivo(input.caminho, input.conteudo)
+  async (input) => {
+    return await escreverArquivo(input.caminho, input.conteudo);
+  }
 );
 
 const commitTool = ai.defineTool(
@@ -143,9 +144,10 @@ const commitTool = ai.defineTool(
     inputSchema: z.object({
       mensagem: z.string().describe('Commit semantic message'),
     }),
-    outputSchema: z.any()
   },
-  async (input) => await commitEPush(input.mensagem)
+  async (input) => {
+    return await commitEPush(input.mensagem);
+  }
 );
 
 const readTool = ai.defineTool(
@@ -155,9 +157,10 @@ const readTool = ai.defineTool(
     inputSchema: z.object({
       caminho: z.string().describe('Relative path to the file to read'),
     }),
-    outputSchema: z.any()
   },
-  async (input) => await lerArquivo(input.caminho)
+  async (input) => {
+    return await lerArquivo(input.caminho);
+  }
 );
 
 
