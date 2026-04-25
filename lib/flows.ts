@@ -7,7 +7,10 @@ import fs from 'fs/promises';
 import path from 'path';
 import simpleGit, { SimpleGit } from 'simple-git';
 
-export interface ChatResponse { resposta: string; modeloUsado: string; }
+export interface ChatResponse {
+  resposta: string;
+  modeloUsado: string;
+}
 
 const DEVBOT_PRO_SYSTEM_PROMPT = `Você é o DevBot Pro, um assistente de programação especialista e altamente focado.
 REGRAS INEGOCIÁVEIS:
@@ -63,61 +66,78 @@ const writeTool = ai.defineTool({ name: 'write_file', description: 'Create or re
 const commitTool = ai.defineTool({ name: 'git_commit_push', description: 'Perform a local git commit and push to remote.', inputSchema: z.object({ mensagem: z.string().describe('Commit semantic message') }) }, async (input) => { return await commitEPush(input.mensagem); });
 const readTool = ai.defineTool({ name: 'read_file', description: 'Reads the content of a local file', inputSchema: z.object({ caminho: z.string().describe('Relative path to the file to read') }) }, async (input) => { return await lerArquivo(input.caminho); });
 
-// Roteador inteligente (SEM FALLBACK)
-export async function smartRouter(prompt: string, forceModel?: string, incluirEstrutura = true, permitirEscrita = false, sessionId?: string): Promise<ChatResponse> {
-  // Define o modelo - se não for fornecido, usa o DeepSeek (remoto)
-  const modelName = forceModel || 'ollama/deepseek-coder-v2';
+// =============== ROTEADOR ÚNICO – DeepSeek via Ngrok ===============
+export async function smartRouter(
+  prompt: string,
+  forceModel?: string,
+  incluirEstrutura = true,
+  permitirEscrita = false,
+  sessionId?: string
+): Promise<ChatResponse> {
+  // Modelo fixo, ignorando qualquer forceModel
+  const modelName = 'ollama/deepseek-coder-v2';
+  const API_URL = 'https://sanctity-protegee-balancing.ngrok-free.dev/api/generate';
 
-  // Decide a URL com base no modelo
-  let API_URL: string;
-  if (modelName === 'ollama/qwen2.5-coder:1.5b') {
-    // Modelo local (Ollama no Termux)
-    API_URL = 'http://127.0.0.1:11434/api/generate';
-  } else {
-    // Modelos remotos via Ngrok
-    const ngrokUrl = process.env.NGROK_URL || '';
-    if (!ngrokUrl) throw new Error('Variável NGROK_URL não definida. Configure-a no ambiente do Render.');
-    API_URL = `${ngrokUrl}/api/generate`;
-  }
-
-  // Informações de contexto (estrutura, memória)
+  // Estrutura de diretório (se solicitada)
   let estruturaTexto = '';
   if (incluirEstrutura) {
-    const estrutura = await listarEstrutura();
-    if (estrutura.length) estruturaTexto = '📁 Estrutura atual do projeto local:\n' + estrutura.map(f => `- ${f.caminho} (${f.tipo})`).join('\n') + '\n\n';
+    try {
+      const estrutura = await listarEstrutura();
+      if (estrutura.length) {
+        estruturaTexto = '📁 Estrutura atual do projeto local:\n' +
+          estrutura.map(f => `- ${f.caminho} (${f.tipo})`).join('\n') + '\n\n';
+      }
+    } catch {}
   }
-  const capacidades = permitirEscrita ? '⚠️ MODO ESCRITA ATIVADO' : '🔒 MODO LEITURA';
-  const [memoryContexts, repoContexts] = await Promise.all([recall(prompt, 2), recallRepoSnippet(prompt, 3)]);
+
+  const capacidades = permitirEscrita
+    ? '⚠️ MODO ESCRITA ATIVADO'
+    : '🔒 MODO LEITURA';
+
+  // Contexto de memória (stubs offline)
+  const [memoryContexts, repoContexts] = await Promise.all([
+    recall(prompt, 2),
+    recallRepoSnippet(prompt, 3)
+  ]);
+
   let augmentedPrompt = `${prompt}\n\n${estruturaTexto}Capacidades: ${capacidades}\n`;
-  if (memoryContexts.length) augmentedPrompt += `--- MEMÓRIAS ---\n${memoryContexts.join('\n\n')}\n`;
-  if (repoContexts.length) augmentedPrompt += `--- CÓDIGO RELACIONADO ---\n${repoContexts.join('\n\n')}\n`;
+  if (memoryContexts.length) {
+    augmentedPrompt += `--- MEMÓRIAS ---\n${memoryContexts.join('\n\n')}\n`;
+  }
+  if (repoContexts.length) {
+    augmentedPrompt += `--- CÓDIGO RELACIONADO ---\n${repoContexts.join('\n\n')}\n`;
+  }
 
   try {
-    console.log(`[DevBot] Gerando com ${modelName} (URL: ${API_URL})`);
-    const bareModel = modelName.split('/')[1];   // remove "ollama/"
+    console.log(`[DevBot] Gerando com ${modelName} via Ngrok fixo`);
+
     const payload = {
-      model: bareModel,
+      model: 'deepseek-coder-v2',   // nome exato no Ollama
       prompt: `${DEVBOT_PRO_SYSTEM_PROMPT}\n\nUser: ${augmentedPrompt}`,
       stream: false,
       options: { temperature: 0.1, top_p: 0.9, top_k: 40 }
     };
 
-    const headers: any = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
-    if (API_URL.includes('ngrok-free.dev')) {
-      headers['ngrok-skip-browser-warning'] = 'true';
-      headers['Host'] = 'localhost:11434';
-    }
+    const rawRes = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'Host': 'localhost:11434'
+      },
+      body: JSON.stringify(payload)
+    });
 
-    const rawRes = await fetch(API_URL, { method: 'POST', headers, body: JSON.stringify(payload) });
     if (!rawRes.ok) {
       const errText = await rawRes.text();
-      throw new Error(`Ollama retornou ${rawRes.status}: ${errText}`);
+      throw new Error(`Ngrok retornou ${rawRes.status}: ${errText}`);
     }
 
     const data = await rawRes.json();
     const finalResponseText = data.response;
 
-    // Salvar histórico (assíncrono, ignora erros)
+    // Salvar no histórico (assíncrono)
     remember("Histórico", `Usuário: ${prompt}\nDevBot: ${finalResponseText}`).catch(console.error);
     const { saveMessage } = await import('./db');
     await saveMessage('user', prompt, sessionId || '');
@@ -125,9 +145,11 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
 
     return { resposta: finalResponseText, modeloUsado: modelName };
   } catch (error: any) {
+    // Apenas lança o erro, sem fallback
     let msg = error.message;
-    if (msg.includes('fetch failed')) msg = `🔌 Conexão recusada. Verifique se o Ollama está rodando.`;
-    // Não faz fallback – apenas repassa o erro
+    if (msg.includes('fetch failed')) {
+      msg = '🔌 Conexão recusada com o Ngrok. Verifique se o túnel está ativo.';
+    }
     throw new Error(msg);
   }
 }
@@ -137,9 +159,20 @@ export async function enviarParaGitHub(repoFullName: string, path: string, conte
   const [owner, repo] = repoFullName.split('/');
   try {
     let sha;
-    try { const { data } = await octokit.repos.getContent({ owner, repo, path }); if (!Array.isArray(data) && 'sha' in data) sha = data.sha; }
-    catch (e: any) { if (e.status !== 404) throw e; }
-    const { data } = await octokit.repos.createOrUpdateFileContents({ owner, repo, path, message, content: Buffer.from(content).toString('base64'), sha });
+    try {
+      const { data } = await octokit.repos.getContent({ owner, repo, path });
+      if (!Array.isArray(data) && 'sha' in data) sha = data.sha;
+    } catch (e: any) {
+      if (e.status !== 404) throw e;
+    }
+    const { data } = await octokit.repos.createOrUpdateFileContents({
+      owner, repo, path, message,
+      content: Buffer.from(content).toString('base64'),
+      sha,
+    });
     return data;
-  } catch (error) { console.error('GitHub push error:', error); throw error; }
+  } catch (error) {
+    console.error('GitHub push error:', error);
+    throw error;
+  }
 }
