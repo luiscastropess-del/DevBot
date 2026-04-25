@@ -14,7 +14,7 @@ interface Message {
   session_id: string;
   role: string;
   content: string;
-  modelo_usado?: string;
+  modelo_usado?: string;           // agora é opcional (undefined), nunca null
   timestamp: number;
 }
 
@@ -34,6 +34,15 @@ async function readData(): Promise<DataStore> {
 
 async function writeData(data: DataStore): Promise<void> {
   await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+// Função de compatibilidade para outros módulos que chamam getDb()
+export async function getDb() {
+  return {
+    all: async () => [],
+    run: async () => {},
+    exec: async () => {},
+  };
 }
 
 export async function getSessions() {
@@ -68,7 +77,21 @@ export async function saveMessage(role: string, content: string, sessionId: stri
     }
   }
   const id = Date.now().toString() + Math.random().toString(36).substring(2, 7);
-  data.messages.push({ id, session_id: sessionId, role, content, modelo_usado: modeloUsado || null, timestamp: Date.now() });
+
+  // Agora modelo_usado é undefined quando não fornecido, nunca null
+  const message: Message = {
+    id,
+    session_id: sessionId,
+    role,
+    content,
+    timestamp: Date.now()
+  };
+  if (modeloUsado) {
+    message.modelo_usado = modeloUsado;
+  }
+
+  data.messages.push(message);
+
   // Update session title if first user message
   const sessionMessages = data.messages.filter(m => m.session_id === sessionId);
   if (sessionMessages.length === 1 && role === 'user') {
@@ -87,7 +110,9 @@ export async function getHistory(sessionId?: string) {
     if (sessions.length === 0) return [];
     sessionId = sessions[0].id;
   }
-  return data.messages.filter(m => m.session_id === sessionId).sort((a, b) => a.timestamp - b.timestamp);
+  return data.messages
+    .filter(m => m.session_id === sessionId)
+    .sort((a, b) => a.timestamp - b.timestamp);
 }
 
 export async function clearHistory(sessionId?: string) {
@@ -99,13 +124,4 @@ export async function clearHistory(sessionId?: string) {
     data.sessions = [];
   }
   await writeData(data);
-}
-
-// Dummy getDb for compatibility (not used elsewhere but keep if needed)
-export async function getDb() {
-  return {
-    all: async () => [],
-    run: async () => {},
-    exec: async () => {},
-  };
 }
