@@ -1,0 +1,8 @@
+transformers
+trl
+unsloth
+torch
+datasets
+accelerate
+bitsandbytes
+xformers

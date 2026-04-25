@@ -1,0 +1,28 @@
+# Dependências
+node_modules/
+.pnp/
+.pnp.js
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build
+.next/
+out/
+build/
+
+# Banco de dados local
+database.sqlite
+devbot_data.json
+
+# Cache do npm
+.npm
+.eslintcache
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
