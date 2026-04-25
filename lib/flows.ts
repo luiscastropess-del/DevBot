@@ -7,10 +7,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import simpleGit, { SimpleGit } from 'simple-git';
 
-export interface ChatResponse {
-  resposta: string;
-  modeloUsado: string;
-}
+export interface ChatResponse { resposta: string; modeloUsado: string; }
 
 const DEVBOT_PRO_SYSTEM_PROMPT = `Você é o DevBot Pro, um assistente de programação especialista e altamente focado.
 REGRAS INEGOCIÁVEIS:
@@ -66,7 +63,7 @@ const writeTool = ai.defineTool({ name: 'write_file', description: 'Create or re
 const commitTool = ai.defineTool({ name: 'git_commit_push', description: 'Perform a local git commit and push to remote.', inputSchema: z.object({ mensagem: z.string().describe('Commit semantic message') }) }, async (input) => { return await commitEPush(input.mensagem); });
 const readTool = ai.defineTool({ name: 'read_file', description: 'Reads the content of a local file', inputSchema: z.object({ caminho: z.string().describe('Relative path to the file to read') }) }, async (input) => { return await lerArquivo(input.caminho); });
 
-// =============== ROTEADOR ÚNICO – DeepSeek via Ngrok ===============
+// =============== ROTEADOR ÚNICO DEEPSEEK ===============
 export async function smartRouter(
   prompt: string,
   forceModel?: string,
@@ -74,45 +71,31 @@ export async function smartRouter(
   permitirEscrita = false,
   sessionId?: string
 ): Promise<ChatResponse> {
-  // Modelo fixo, ignorando qualquer forceModel
+  // Modelo fixo – ignora forceModel
   const modelName = 'ollama/deepseek-coder-v2';
   const API_URL = 'https://sanctity-protegee-balancing.ngrok-free.dev/api/generate';
 
-  // Estrutura de diretório (se solicitada)
+  // Estrutura local (se solicitado)
   let estruturaTexto = '';
   if (incluirEstrutura) {
     try {
       const estrutura = await listarEstrutura();
-      if (estrutura.length) {
-        estruturaTexto = '📁 Estrutura atual do projeto local:\n' +
-          estrutura.map(f => `- ${f.caminho} (${f.tipo})`).join('\n') + '\n\n';
-      }
+      if (estrutura.length) estruturaTexto = '📁 Estrutura atual do projeto local:\n' + estrutura.map(f => `- ${f.caminho} (${f.tipo})`).join('\n') + '\n\n';
     } catch {}
   }
 
-  const capacidades = permitirEscrita
-    ? '⚠️ MODO ESCRITA ATIVADO'
-    : '🔒 MODO LEITURA';
-
-  // Contexto de memória (stubs offline)
-  const [memoryContexts, repoContexts] = await Promise.all([
-    recall(prompt, 2),
-    recallRepoSnippet(prompt, 3)
-  ]);
+  const capacidades = permitirEscrita ? '⚠️ MODO ESCRITA ATIVADO' : '🔒 MODO LEITURA';
+  const [memoryContexts, repoContexts] = await Promise.all([recall(prompt, 2), recallRepoSnippet(prompt, 3)]);
 
   let augmentedPrompt = `${prompt}\n\n${estruturaTexto}Capacidades: ${capacidades}\n`;
-  if (memoryContexts.length) {
-    augmentedPrompt += `--- MEMÓRIAS ---\n${memoryContexts.join('\n\n')}\n`;
-  }
-  if (repoContexts.length) {
-    augmentedPrompt += `--- CÓDIGO RELACIONADO ---\n${repoContexts.join('\n\n')}\n`;
-  }
+  if (memoryContexts.length) augmentedPrompt += `--- MEMÓRIAS ---\n${memoryContexts.join('\n\n')}\n`;
+  if (repoContexts.length) augmentedPrompt += `--- CÓDIGO RELACIONADO ---\n${repoContexts.join('\n\n')}\n`;
 
   try {
-    console.log(`[DevBot] Gerando com ${modelName} via Ngrok fixo`);
+    console.log(`[DevBot] Gerando resposta com DeepSeek via Ngrok`);
 
     const payload = {
-      model: 'deepseek-coder-v2',   // nome exato no Ollama
+      model: 'deepseek-coder-v2',
       prompt: `${DEVBOT_PRO_SYSTEM_PROMPT}\n\nUser: ${augmentedPrompt}`,
       stream: false,
       options: { temperature: 0.1, top_p: 0.9, top_k: 40 }
@@ -123,8 +106,7 @@ export async function smartRouter(
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
-        'Host': 'localhost:11434'
+        'ngrok-skip-browser-warning': 'true'
       },
       body: JSON.stringify(payload)
     });
@@ -137,19 +119,16 @@ export async function smartRouter(
     const data = await rawRes.json();
     const finalResponseText = data.response;
 
-    // Salvar no histórico (assíncrono)
-    remember("Histórico", `Usuário: ${prompt}\nDevBot: ${finalResponseText}`).catch(console.error);
+    // Salvar histórico (assíncrono)
+    remember("Histórico", `Usuário: ${prompt}\nDevBot: ${finalResponseText}`).catch(() => {});
     const { saveMessage } = await import('./db');
     await saveMessage('user', prompt, sessionId || '');
     await saveMessage('assistant', finalResponseText, sessionId || '', modelName);
 
     return { resposta: finalResponseText, modeloUsado: modelName };
   } catch (error: any) {
-    // Apenas lança o erro, sem fallback
     let msg = error.message;
-    if (msg.includes('fetch failed')) {
-      msg = '🔌 Conexão recusada com o Ngrok. Verifique se o túnel está ativo.';
-    }
+    if (msg.includes('fetch failed')) msg = '🔌 Conexão recusada com o Ngrok. Verifique se o túnel está ativo.';
     throw new Error(msg);
   }
 }
@@ -159,20 +138,9 @@ export async function enviarParaGitHub(repoFullName: string, path: string, conte
   const [owner, repo] = repoFullName.split('/');
   try {
     let sha;
-    try {
-      const { data } = await octokit.repos.getContent({ owner, repo, path });
-      if (!Array.isArray(data) && 'sha' in data) sha = data.sha;
-    } catch (e: any) {
-      if (e.status !== 404) throw e;
-    }
-    const { data } = await octokit.repos.createOrUpdateFileContents({
-      owner, repo, path, message,
-      content: Buffer.from(content).toString('base64'),
-      sha,
-    });
+    try { const { data } = await octokit.repos.getContent({ owner, repo, path }); if (!Array.isArray(data) && 'sha' in data) sha = data.sha; }
+    catch (e: any) { if (e.status !== 404) throw e; }
+    const { data } = await octokit.repos.createOrUpdateFileContents({ owner, repo, path, message, content: Buffer.from(content).toString('base64'), sha });
     return data;
-  } catch (error) {
-    console.error('GitHub push error:', error);
-    throw error;
-  }
+  } catch (error) { console.error('GitHub push error:', error); throw error; }
 }
