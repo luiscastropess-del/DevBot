@@ -21,7 +21,6 @@
     "clsx": "^2.1.1",
     "genkit": "^1.32.0",
     "highlight.js": "^11.11.1",
-    "lightningcss-android-arm64": "^1.32.0",
     "lucide-react": "^0.553.0",
     "motion": "^12.23.24",
     "next": "^15.4.9",
