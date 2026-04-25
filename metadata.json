@@ -1,6 +1,0 @@
-{
-  "name": "DevBot Pro",
-  "description": "A robust programming chatbot with hybrid AI orchestration using Genkit, featuring local Qwen2.5-Coder and cloud fallbacks, plus local fine-tuning capabilities.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
-}
