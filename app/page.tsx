@@ -171,18 +171,20 @@ export default function ChatPage() {
           onSelect={setActiveSessionId}
           onNew={handleNewChat}
           onDelete={handleDeleteSession}
+          className="hidden md:flex"
         />
 
         {/* Mobile Sidebar Overlay */}
         {showMobileSidebar && (
-          <div className="fixed inset-0 z-50 md:hidden bg-black/60 flex">
+          <div className="fixed inset-0 z-50 md:hidden bg-black/60 flex text-left">
              <div className="w-64 h-full">
                 <ChatSessions 
                   sessions={sessions}
                   activeSessionId={activeSessionId}
                   onSelect={(id) => { setActiveSessionId(id); setShowMobileSidebar(false); }}
-                  onNew={handleNewChat}
+                  onNew={() => { handleNewChat(); setShowMobileSidebar(false); }}
                   onDelete={handleDeleteSession}
+                  className="flex"
                 />
              </div>
              <div className="flex-1" onClick={() => setShowMobileSidebar(false)}>

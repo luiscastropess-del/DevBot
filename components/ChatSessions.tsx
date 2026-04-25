@@ -15,11 +15,12 @@ interface ChatSessionsProps {
   onSelect: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
+  className?: string;
 }
 
-export function ChatSessions({ sessions, activeSessionId, onSelect, onNew, onDelete }: ChatSessionsProps) {
+export function ChatSessions({ sessions, activeSessionId, onSelect, onNew, onDelete, className = "" }: ChatSessionsProps) {
   return (
-    <div className="flex flex-col h-full bg-[#08120e] border-r border-[#1f4a2c] w-64 hidden md:flex">
+    <div className={`flex flex-col h-full bg-[#08120e] border-r border-[#1f4a2c] w-64 ${className}`}>
       <div className="p-4 border-b border-[#1f4a2c]">
         <button
           onClick={onNew}
