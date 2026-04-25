@@ -1,107 +1,111 @@
-import { Database } from 'sqlite';
+import fs from 'fs/promises';
+import path from 'path';
 
-let db: any | null = null;
+const DATA_FILE = path.join(process.cwd(), 'devbot_data.json');
 
-export async function getDb() {
-  if (db) return db;
+interface Session {
+  id: string;
+  title: string;
+  created_at: number;
+}
 
-  const sqlite3 = await import('sqlite3');
-  const { open } = await import('sqlite');
-  const path = await import('path');
-  
-  const dbPath = path.join(process.cwd(), 'database.sqlite');
-  
-  db = await open({
-    filename: dbPath,
-    driver: sqlite3.default.Database
-  });
+interface Message {
+  id: string;
+  session_id: string;
+  role: string;
+  content: string;
+  modelo_usado?: string;
+  timestamp: number;
+}
 
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS chat_sessions (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      created_at INTEGER NOT NULL
-    )
-  `);
+interface DataStore {
+  sessions: Session[];
+  messages: Message[];
+}
 
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS messages (
-      id TEXT PRIMARY KEY,
-      session_id TEXT NOT NULL,
-      role TEXT NOT NULL,
-      content TEXT NOT NULL,
-      modelo_usado TEXT,
-      timestamp INTEGER NOT NULL,
-      FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
-    )
-  `);
+async function readData(): Promise<DataStore> {
+  try {
+    const raw = await fs.readFile(DATA_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return { sessions: [], messages: [] };
+  }
+}
 
-  return db;
+async function writeData(data: DataStore): Promise<void> {
+  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
 export async function getSessions() {
-  const db = await getDb();
-  return await db.all('SELECT * FROM chat_sessions ORDER BY created_at DESC');
+  const data = await readData();
+  return data.sessions.sort((a, b) => b.created_at - a.created_at);
 }
 
 export async function createSession(title: string = 'Nova Conversa') {
-  const db = await getDb();
+  const data = await readData();
   const id = 'sess_' + Date.now().toString() + Math.random().toString(36).substring(2, 5);
-  await db.run(
-    'INSERT INTO chat_sessions (id, title, created_at) VALUES (?, ?, ?)',
-    [id, title, Date.now()]
-  );
+  data.sessions.push({ id, title, created_at: Date.now() });
+  await writeData(data);
   return id;
 }
 
 export async function deleteSession(id: string) {
-  const db = await getDb();
-  await db.run('DELETE FROM chat_sessions WHERE id = ?', [id]);
+  const data = await readData();
+  data.sessions = data.sessions.filter(s => s.id !== id);
+  data.messages = data.messages.filter(m => m.session_id !== id);
+  await writeData(data);
 }
 
 export async function saveMessage(role: string, content: string, sessionId: string, modeloUsado?: string) {
-  const db = await getDb();
-  const id = Date.now().toString() + Math.random().toString(36).substring(2, 7);
-  
-  // Auto-create session if it doesn't exist (legacy fallback)
+  const data = await readData();
+  // Auto-create session if not provided
   if (!sessionId) {
-    const sessions = await getSessions();
+    const sessions = data.sessions.sort((a, b) => b.created_at - a.created_at);
     if (sessions.length === 0) {
       sessionId = await createSession();
     } else {
       sessionId = sessions[0].id;
     }
   }
-
-  await db.run(
-    'INSERT INTO messages (id, session_id, role, content, modelo_usado, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, sessionId, role, content, modeloUsado || null, Date.now()]
-  );
-
-  // Update session title if it's the first message
-  const msgs = await db.all('SELECT id FROM messages WHERE session_id = ? LIMIT 2', [sessionId]);
-  if (msgs.length === 1 && role === 'user') {
-    const title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
-    await db.run('UPDATE chat_sessions SET title = ? WHERE id = ?', [title, sessionId]);
+  const id = Date.now().toString() + Math.random().toString(36).substring(2, 7);
+  data.messages.push({ id, session_id: sessionId, role, content, modelo_usado: modeloUsado || null, timestamp: Date.now() });
+  // Update session title if first user message
+  const sessionMessages = data.messages.filter(m => m.session_id === sessionId);
+  if (sessionMessages.length === 1 && role === 'user') {
+    const session = data.sessions.find(s => s.id === sessionId);
+    if (session) {
+      session.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+    }
   }
+  await writeData(data);
 }
 
 export async function getHistory(sessionId?: string) {
-  const db = await getDb();
+  const data = await readData();
   if (!sessionId) {
-    const sessions = await getSessions();
+    const sessions = data.sessions.sort((a, b) => b.created_at - a.created_at);
     if (sessions.length === 0) return [];
     sessionId = sessions[0].id;
   }
-  return await db.all('SELECT * FROM messages WHERE session_id = ? ORDER BY timestamp ASC', [sessionId]);
+  return data.messages.filter(m => m.session_id === sessionId).sort((a, b) => a.timestamp - b.timestamp);
 }
 
 export async function clearHistory(sessionId?: string) {
-  const db = await getDb();
+  const data = await readData();
   if (sessionId) {
-    await db.run('DELETE FROM messages WHERE session_id = ?', [sessionId]);
+    data.messages = data.messages.filter(m => m.session_id !== sessionId);
   } else {
-    await db.run('DELETE FROM messages');
-    await db.run('DELETE FROM chat_sessions');
+    data.messages = [];
+    data.sessions = [];
   }
+  await writeData(data);
+}
+
+// Dummy getDb for compatibility (not used elsewhere but keep if needed)
+export async function getDb() {
+  return {
+    all: async () => [],
+    run: async () => {},
+    exec: async () => {},
+  };
 }

@@ -45,7 +45,8 @@ export async function POST(req: Request) {
 
     // Default chat logic with structure awareness and potential permissions write
     const permitirEscrita = params?.permitirEscrita || false;
-    const { resposta, modeloUsado } = await smartRouter(prompt, forceModel, true, permitirEscrita, sessionId);
+    const MODELO_LOCAL = 'ollama/qwen2.5-coder:1.5b';
+    const { resposta, modeloUsado } = await smartRouter(prompt, MODELO_LOCAL, true, permitirEscrita, sessionId);
 
     return NextResponse.json({ resposta, modeloUsado });
   } catch (error: any) {
