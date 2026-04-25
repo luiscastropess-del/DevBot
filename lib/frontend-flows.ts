@@ -17,9 +17,9 @@ export async function generateChatClient(prompt: string, forceModel?: string, se
     { type: 'backend', id: 'luiscastropess/devbot-pro:latest' },
     { type: 'backend', id: 'ollama/devbot-pro' },
     { type: 'backend', id: 'ollama/qwen2.5-coder:7b' },
-    { type: 'backend', id: 'googleai/gemini-1.5-pro' },
-    { type: 'backend', id: 'googleai/gemini-1.5-flash' },
-    { type: 'backend', id: 'googleai/gemini-1.5-flash-8b' }
+    { type: 'backend', id: 'googleai/gemini-3.1-pro-preview' },
+    { type: 'backend', id: 'googleai/gemini-3-flash-preview' },
+    { type: 'backend', id: 'googleai/gemini-3.1-flash-lite-preview' }
   ];
 
   // If a specific model is forced, we try it FIRST, then fallback to others if it crashes

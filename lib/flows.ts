@@ -256,7 +256,7 @@ export async function smartRouter(prompt: string, forceModel?: string, incluirEs
       finalResponseText = await chatComModelo(augmentedPrompt);
     }
     // If using Google Gemini via Genkit natively, we can use tools easily
-    else if (modelName.startsWith('googleai/') || modelName.includes('gemini-1.5')) {
+    else if (modelName.startsWith('googleai/') || modelName.includes('gemini-3')) {
       const response = await ai.generate({
         model: modelName,
         prompt: augmentedPrompt,
